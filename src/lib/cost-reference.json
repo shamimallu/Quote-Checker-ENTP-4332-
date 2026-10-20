@@ -1,0 +1,25 @@
+{
+  "notes": "Typical US price ranges for common home repair line items, for sanity-checking contractor quotes. Sourced from public home-improvement cost guides. Not a quote or appraisal — ranges vary by region and job specifics.",
+  "items": [
+    { "description": "Water heater replacement (standard tank)", "lowUsd": 1200, "highUsd": 2500 },
+    { "description": "Water heater replacement (tankless)", "lowUsd": 2500, "highUsd": 4500 },
+    { "description": "HVAC system replacement", "lowUsd": 5000, "highUsd": 12000 },
+    { "description": "Furnace replacement", "lowUsd": 3800, "highUsd": 7500 },
+    { "description": "Central air conditioner replacement", "lowUsd": 4200, "highUsd": 8000 },
+    { "description": "Roof replacement (asphalt shingle, average home)", "lowUsd": 6000, "highUsd": 15000 },
+    { "description": "Roof repair (patch/leak)", "lowUsd": 400, "highUsd": 1800 },
+    { "description": "Gutter replacement (whole house)", "lowUsd": 1200, "highUsd": 3000 },
+    { "description": "Electrical panel upgrade", "lowUsd": 1500, "highUsd": 4000 },
+    { "description": "Outlet or switch replacement (each)", "lowUsd": 80, "highUsd": 250 },
+    { "description": "Whole-house rewiring", "lowUsd": 4000, "highUsd": 15000 },
+    { "description": "Plumbing pipe repair (single)", "lowUsd": 150, "highUsd": 500 },
+    { "description": "Sewer line replacement", "lowUsd": 3000, "highUsd": 10000 },
+    { "description": "Toilet replacement", "lowUsd": 250, "highUsd": 800 },
+    { "description": "Window replacement (per window)", "lowUsd": 400, "highUsd": 1200 },
+    { "description": "Exterior door replacement", "lowUsd": 500, "highUsd": 1800 },
+    { "description": "Drywall repair (per room/patch)", "lowUsd": 250, "highUsd": 800 },
+    { "description": "Interior painting (per room)", "lowUsd": 350, "highUsd": 1000 },
+    { "description": "Exterior painting (whole house)", "lowUsd": 2000, "highUsd": 6000 },
+    { "description": "Deck repair", "lowUsd": 600, "highUsd": 2500 }
+  ]
+}
