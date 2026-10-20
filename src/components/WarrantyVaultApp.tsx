@@ -40,19 +40,14 @@ export default function WarrantyVaultApp() {
   }, []);
 
   async function handleSave(warranty: Warranty) {
-    const saved = await saveWarranty(warranty);
-    setWarranties((list) => [...(list ?? []).filter((w) => w.id !== saved.id), saved]);
-    setView({ kind: "view", id: saved.id });
+    await saveWarranty(warranty);
+    setWarranties((list) => [...(list ?? []).filter((w) => w.id !== warranty.id), warranty]);
+    setView({ kind: "view", id: warranty.id });
   }
 
   async function handleDelete(warranty: Warranty) {
     if (!window.confirm(`Delete the "${warranty.item}" warranty? This can't be undone.`)) return;
-    try {
-      await deleteWarranty(warranty.id);
-    } catch {
-      window.alert("Could not delete that warranty. Try again.");
-      return;
-    }
+    await deleteWarranty(warranty.id);
     setWarranties((list) => (list ?? []).filter((w) => w.id !== warranty.id));
     setView({ kind: "list" });
   }
@@ -114,7 +109,7 @@ export default function WarrantyVaultApp() {
 
           {loadError && (
             <p className="mb-4 text-sm text-red-400">
-              Could not load your warranties. Check your connection and that you are signed in, then refresh.
+              Could not open saved warranties. Your browser may be blocking storage (e.g. private browsing).
             </p>
           )}
 
