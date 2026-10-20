@@ -72,7 +72,7 @@ export default function WarrantyForm({
     try {
       await onSave({ ...form, item: form.item.trim(), provider: form.provider.trim() });
     } catch {
-      setError("Could not save. Your browser may be blocking storage (e.g. private browsing).");
+      setError("Could not save. Check your connection and that you are signed in, then try again.");
       setSaving(false);
     }
   }

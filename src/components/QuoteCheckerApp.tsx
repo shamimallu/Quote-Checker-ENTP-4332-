@@ -1,22 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import QuoteUploadForm from "@/components/QuoteUploadForm";
 import QuoteList from "@/components/QuoteList";
 import QuoteComparison from "@/components/QuoteComparison";
-import { loadQuotes, saveQuotes } from "@/lib/quote-storage";
+import { deleteQuote, loadQuotes, saveQuote } from "@/lib/quote-storage";
 import type { ComparisonResult, ExtractedQuote } from "@/lib/quote-types";
 
 export default function QuoteCheckerApp() {
-  const [quotes, setQuotes] = useState<ExtractedQuote[]>(() =>
-    typeof window === "undefined" ? [] : loadQuotes()
-  );
+  const [quotes, setQuotes] = useState<ExtractedQuote[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [comparing, setComparing] = useState(false);
   const [compareError, setCompareError] = useState<string | null>(null);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
+
+  useEffect(() => {
+    loadQuotes()
+      .then(setQuotes)
+      .catch(() => setUploadError("Could not load your saved quotes. Check your connection and refresh."));
+  }, []);
 
   async function handleUpload(file: File) {
     setUploading(true);
@@ -31,19 +35,24 @@ export default function QuoteCheckerApp() {
         depositAmount: null,
         warrantyTerms: "AI analysis coming soon — this file is saved, but not read yet.",
       };
-      const next = [...quotes, placeholder];
-      setQuotes(next);
-      saveQuotes(next);
+      await saveQuote(placeholder);
+      setQuotes((list) => [...list, placeholder]);
       setComparison(null);
+    } catch {
+      setUploadError("Could not save that quote. Check your connection and that you are signed in.");
     } finally {
       setUploading(false);
     }
   }
 
-  function handleRemove(id: string) {
-    const next = quotes.filter((q) => q.id !== id);
-    setQuotes(next);
-    saveQuotes(next);
+  async function handleRemove(id: string) {
+    try {
+      await deleteQuote(id);
+    } catch {
+      setUploadError("Could not remove that quote. Try again.");
+      return;
+    }
+    setQuotes((list) => list.filter((q) => q.id !== id));
     setComparison(null);
   }
 

@@ -10,7 +10,8 @@ export const WARRANTY_TYPE_LABELS: Record<WarrantyType, string> = {
 export type WarrantyDocument = {
   name: string;
   type: string;
-  blob: Blob;
+  blob?: Blob; // a file just chosen in the form, not uploaded yet
+  path?: string; // where the uploaded file lives in Supabase Storage
 };
 
 export type Warranty = {

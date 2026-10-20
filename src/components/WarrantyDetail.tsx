@@ -1,6 +1,7 @@
 "use client";
 
 import WarrantyStatusBadge from "@/components/WarrantyStatusBadge";
+import { getDocumentUrl } from "@/lib/warranty-storage";
 import {
   WARRANTY_TYPE_LABELS,
   daysLeft,
@@ -26,11 +27,14 @@ export default function WarrantyDetail({
   const end = getEndDate(warranty);
   const left = end ? daysLeft(end) : null;
 
-  function openDocument() {
-    if (!warranty.document) return;
-    const url = URL.createObjectURL(warranty.document.blob);
-    window.open(url, "_blank", "noopener");
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  async function openDocument() {
+    const doc = warranty.document;
+    if (!doc?.path) return;
+    try {
+      window.open(await getDocumentUrl(doc.path), "_blank", "noopener");
+    } catch {
+      window.alert("Could not open that document. Try again.");
+    }
   }
 
   return (
