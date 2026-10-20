@@ -1,4 +1,5 @@
 import Link from "next/link";
+import MuseButton from "@/components/MuseButton";
 import SectionIcon from "@/components/SectionIcon";
 import { sections } from "@/lib/sections";
 
@@ -39,6 +40,8 @@ export default function Home() {
           ))}
         </nav>
       </div>
+
+      <MuseButton />
     </main>
   );
 }
