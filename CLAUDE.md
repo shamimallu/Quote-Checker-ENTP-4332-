@@ -6,7 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this project is
 
-**Quote Checker** — a group project for ENTP 4332 (entp6314). The app lets a user paste in a quote and check it: who actually said it, whether the wording is accurate, and where it originally came from. The repo is currently the Next.js starter; features are still to be built.
+**homi** is a group project for ENTP 4332 (entp6314). It helps homeowners understand a repair quote before agreeing to the work. It checks price context, missing scope items, quote differences, deposit terms, and warranty language. Then it helps the homeowner request comparable bids and keep a reliable record of the job.
+
+The app has four sections, linked from the home page:
+
+- **Quote Checker** (`/quote-checker`): analyze a contractor's repair quote
+- **Job Files** (`/job-files`): keep the documents for each job together
+- **Warranty Vault** (`/warranty-vault`): store and review warranty terms
+- **Proof Log** (`/proof-log`): keep a reliable record of the work
+
+The home page is built. The four sections are placeholder "coming soon" pages that still need to be built.
 
 ## Stack
 
@@ -30,8 +39,14 @@ There is no test runner configured yet.
 
 ## Layout
 
-- `src/app/` — App Router routes. `layout.tsx` is the root layout, `page.tsx` is the home page.
+- `src/app/` — App Router routes. `layout.tsx` is the root layout (fonts, metadata), `page.tsx` is the home page, and each section has its own folder (e.g. `src/app/quote-checker/page.tsx`).
+- `src/lib/sections.ts` — the single list of app sections (title, route, icon). The home page and placeholders read from it, so add or rename sections here.
+- `src/components/` — shared components (`SectionIcon`, `ComingSoon`).
 - `public/` — static assets served from `/`.
+
+## Design
+
+Dark, warm, neutral palette defined as Tailwind colors in `src/app/globals.css`: `espresso` (page background), `bark` (surfaces), `walnut` (borders), `cocoa`, `caramel` (accent), `sand` (muted text), `beige` (main text). Use these tokens rather than raw hex values. Headings and the "homi" wordmark use the serif font (`font-serif`, Fraunces); body text uses `font-sans` (Geist).
 - Import alias `@/*` maps to `src/*`.
 
 ## Conventions

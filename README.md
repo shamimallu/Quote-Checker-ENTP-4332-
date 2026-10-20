@@ -1,6 +1,6 @@
 # Quote-Checker-ENTP-4332-
 
-A group project for ENTP 4332: a web app for checking quotes, including who said them, whether the wording is accurate, and where they came from.
+**homi** is a group project for ENTP 4332. It helps homeowners understand a repair quote before agreeing to the work. It checks price context, missing scope items, quote differences, deposit terms, and warranty language. Then it helps the homeowner request comparable bids and keep a reliable record of the job.
 
 Built with [Next.js](https://nextjs.org) (App Router), TypeScript, and Tailwind CSS.
 
