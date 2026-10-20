@@ -1,26 +1,29 @@
 @import "tailwindcss";
 
+/* homi palette: dark, warm neutrals (espresso, walnut, caramel, beige) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #1c1714;
+  --foreground: #ece1cf;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
+  --color-espresso: #1c1714;
+  --color-bark: #261f1a;
+  --color-walnut: #3d3029;
+  --color-cocoa: #5a4536;
+  --color-caramel: #c29a6b;
+  --color-sand: #b8a68f;
+  --color-beige: #ece1cf;
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-serif: var(--font-fraunces);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }
