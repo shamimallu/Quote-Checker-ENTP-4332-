@@ -15,7 +15,7 @@ The app has four sections, linked from the home page:
 - **Warranty Vault** (`/warranty-vault`): store and review warranty terms
 - **Proof Log** (`/proof-log`): keep a reliable record of the work
 
-The home page is built. The four sections are placeholder "coming soon" pages that still need to be built.
+The home page, Quote Checker, and Warranty Vault are built. Job Files and Proof Log are still placeholder "coming soon" pages.
 
 ## Stack
 
@@ -45,7 +45,8 @@ There is no test runner configured yet.
 
 - `src/app/` — App Router routes. `layout.tsx` is the root layout (fonts, metadata), `page.tsx` is the home page, and each section has its own folder (e.g. `src/app/quote-checker/page.tsx`).
 - `src/lib/sections.ts` — the single list of app sections (title, route, icon). The home page and placeholders read from it, so add or rename sections here.
-- `src/components/` — shared components (`SectionIcon`, `ComingSoon`).
+- `src/components/` — shared components (`SectionIcon`, `ComingSoon`) and each section's UI.
+- Warranty Vault: `src/lib/warranty-types.ts` (the warranty shape, end-date and status rules — "ending soon" is within `ENDING_SOON_DAYS` = 60), `src/lib/warranty-storage.ts` (saves warranties and their attached PDFs/photos in the browser's IndexedDB, not localStorage, because files are too big for localStorage; no library), and `src/components/Warranty*.tsx`. Nothing is sent to a server.
 - `public/` — static assets served from `/`.
 
 ## Design
