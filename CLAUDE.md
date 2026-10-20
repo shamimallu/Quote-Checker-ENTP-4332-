@@ -23,6 +23,10 @@ The home page is built. The four sections are placeholder "coming soon" pages th
 - Tailwind CSS v4 (configured via `@import "tailwindcss"` in `src/app/globals.css` — there is no `tailwind.config.js`)
 - ESLint 9 flat config (`eslint.config.mjs`) with `eslint-config-next`
 - npm as the package manager (commit `package-lock.json`)
+- `@anthropic-ai/sdk` — used by the Quote Checker's two API routes
+  (`src/app/api/extract-quote`, `src/app/api/compare-quotes`) to read
+  uploaded quote files and compare them. Requires an `ANTHROPIC_API_KEY` in
+  `.env.local` (not committed — get a key at console.anthropic.com).
 
 Next.js 16 has breaking changes versus older versions. Before writing framework code, check the bundled docs in `node_modules/next/dist/docs/` rather than relying on memory (see `AGENTS.md`).
 

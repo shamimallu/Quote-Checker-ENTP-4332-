@@ -1,5 +1,5 @@
-import ComingSoon from "@/components/ComingSoon";
+import QuoteCheckerApp from "@/components/QuoteCheckerApp";
 
 export default function QuoteChecker() {
-  return <ComingSoon href="/quote-checker" />;
+  return <QuoteCheckerApp />;
 }
