@@ -1,5 +1,5 @@
-import ComingSoon from "@/components/ComingSoon";
+import WarrantyVaultApp from "@/components/WarrantyVaultApp";
 
 export default function WarrantyVault() {
-  return <ComingSoon href="/warranty-vault" />;
+  return <WarrantyVaultApp />;
 }
