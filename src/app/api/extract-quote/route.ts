@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAnthropicClient } from "@/lib/anthropic";
+import { generateGeminiJson, getGeminiClient, isGeminiSelected } from "@/lib/gemini";
 import type { ExtractedQuote } from "@/lib/quote-types";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB
@@ -73,6 +74,10 @@ export async function POST(request: Request) {
   const bytes = await file.arrayBuffer();
   const base64Data = Buffer.from(bytes).toString("base64");
 
+  if (isGeminiSelected()) {
+    return extractWithGemini(file, base64Data);
+  }
+
   const documentBlock =
     file.type === "application/pdf"
       ? {
@@ -124,6 +129,42 @@ export async function POST(request: Request) {
     }
 
     const parsed = toolUse.input as Omit<ExtractedQuote, "id" | "fileName">;
+    const quote: ExtractedQuote = {
+      id: crypto.randomUUID(),
+      fileName: file.name,
+      ...parsed,
+    };
+
+    return NextResponse.json(quote);
+  } catch {
+    return NextResponse.json({ error: "Something went wrong reading that quote." }, { status: 502 });
+  }
+}
+
+async function extractWithGemini(file: File, base64Data: string) {
+  let client;
+  try {
+    client = getGeminiClient();
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "AI is not configured." },
+      { status: 500 }
+    );
+  }
+
+  try {
+    const parsed = (await generateGeminiJson(
+      client,
+      [
+        { inlineData: { mimeType: file.type, data: base64Data } },
+        { text: "This is a contractor's repair quote. Extract its contents." },
+      ],
+      EXTRACT_TOOL.input_schema
+    )) as Omit<ExtractedQuote, "id" | "fileName"> | null;
+    if (!parsed) {
+      return NextResponse.json({ error: "Could not read that quote." }, { status: 502 });
+    }
+
     const quote: ExtractedQuote = {
       id: crypto.randomUUID(),
       fileName: file.name,

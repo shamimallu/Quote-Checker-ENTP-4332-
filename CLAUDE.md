@@ -27,6 +27,11 @@ The home page, Quote Checker, and Warranty Vault are built. Job Files and Proof 
   (`src/app/api/extract-quote`, `src/app/api/compare-quotes`) to read
   uploaded quote files and compare them. Requires an `ANTHROPIC_API_KEY` in
   `.env.local` (not committed — get a key at console.anthropic.com).
+- `@google/genai` — optional Google Gemini support for the same two routes
+  (`src/lib/gemini.ts`). Off by default; set `AI_PROVIDER=gemini` and a
+  `GEMINI_API_KEY` in `.env.local` (get a key at aistudio.google.com/apikey)
+  to use it instead of Claude. Optional `GEMINI_MODEL` picks the model
+  (defaults to `gemini-flash-latest`).
 
 Next.js 16 has breaking changes versus older versions. Before writing framework code, check the bundled docs in `node_modules/next/dist/docs/` rather than relying on memory (see `AGENTS.md`).
 
