@@ -12,7 +12,7 @@ export default function QuoteList({
   compareError,
 }: {
   quotes: ExtractedQuote[];
-  onRemove: (id: string) => void;
+  onRemove?: (id: string) => void; // left out when the person can only view the job
   onCompare: () => void;
   comparing: boolean;
   compareError: string | null;
@@ -36,13 +36,15 @@ export default function QuoteList({
                 <h3 className="font-serif text-lg text-beige">{quote.contractorName}</h3>
                 <p className="text-xs text-sand">{quote.fileName}</p>
               </div>
-              <button
-                type="button"
-                onClick={() => onRemove(quote.id)}
-                className="text-xs text-sand transition-colors hover:text-caramel"
-              >
-                Remove
-              </button>
+              {onRemove && (
+                <button
+                  type="button"
+                  onClick={() => onRemove(quote.id)}
+                  className="text-xs text-sand transition-colors hover:text-caramel"
+                >
+                  Remove
+                </button>
+              )}
             </div>
 
             <ul className="mt-3 space-y-1 text-sm text-beige">
