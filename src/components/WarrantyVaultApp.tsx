@@ -5,6 +5,8 @@ import Link from "next/link";
 import WarrantyCard from "@/components/WarrantyCard";
 import WarrantyDetail from "@/components/WarrantyDetail";
 import WarrantyForm from "@/components/WarrantyForm";
+import { loadJobs } from "@/lib/job-storage";
+import { canEditJob, type Job } from "@/lib/job-types";
 import { deleteWarranty, loadWarranties, saveWarranty } from "@/lib/warranty-storage";
 import { getEndDate, getStatus, type Warranty } from "@/lib/warranty-types";
 
@@ -29,6 +31,13 @@ export default function WarrantyVaultApp() {
   const [warranties, setWarranties] = useState<Warranty[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [view, setView] = useState<View>({ kind: "list" });
+  const [jobs, setJobs] = useState<Job[]>([]);
+
+  useEffect(() => {
+    loadJobs()
+      .then(setJobs)
+      .catch(() => setJobs([])); // warranties still work without jobs
+  }, []);
 
   useEffect(() => {
     loadWarranties()
@@ -49,8 +58,8 @@ export default function WarrantyVaultApp() {
     if (!window.confirm(`Delete the "${warranty.item}" warranty? This can't be undone.`)) return;
     try {
       await deleteWarranty(warranty.id);
-    } catch {
-      window.alert("Could not delete that warranty. Try again.");
+    } catch (e) {
+      window.alert(e instanceof Error && e.message ? e.message : "Could not delete that warranty. Try again.");
       return;
     }
     setWarranties((list) => (list ?? []).filter((w) => w.id !== warranty.id));
@@ -58,6 +67,8 @@ export default function WarrantyVaultApp() {
   }
 
   const list = sortWarranties(warranties ?? []);
+  const editableJobs = jobs.filter(canEditJob);
+  const jobTitle = (w: Warranty) => jobs.find((j) => j.id === w.jobId)?.title;
   const selected = "id" in view ? list.find((w) => w.id === view.id) : undefined;
   const counts = { active: 0, "ending-soon": 0, expired: 0 };
   list.forEach((w) => counts[getStatus(w)]++);
@@ -75,12 +86,13 @@ export default function WarrantyVaultApp() {
       </div>
 
       {view.kind === "add" && (
-        <WarrantyForm onSave={handleSave} onCancel={() => setView({ kind: "list" })} />
+        <WarrantyForm jobs={editableJobs} onSave={handleSave} onCancel={() => setView({ kind: "list" })} />
       )}
 
       {view.kind === "edit" && selected && (
         <WarrantyForm
           initial={selected}
+          jobs={editableJobs}
           onSave={handleSave}
           onCancel={() => setView({ kind: "view", id: selected.id })}
         />
@@ -89,6 +101,7 @@ export default function WarrantyVaultApp() {
       {view.kind === "view" && selected && (
         <WarrantyDetail
           warranty={selected}
+          jobTitle={jobTitle(selected)}
           onBack={() => setView({ kind: "list" })}
           onEdit={() => setView({ kind: "edit", id: selected.id })}
           onDelete={() => handleDelete(selected)}
@@ -127,7 +140,7 @@ export default function WarrantyVaultApp() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
               {list.map((w) => (
-                <WarrantyCard key={w.id} warranty={w} onOpen={() => setView({ kind: "view", id: w.id })} />
+                <WarrantyCard key={w.id} warranty={w} jobTitle={jobTitle(w)} onOpen={() => setView({ kind: "view", id: w.id })} />
               ))}
             </div>
           )}

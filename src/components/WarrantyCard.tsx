@@ -3,9 +3,11 @@ import { daysLeft, formatDate, getEndDate, getStatus, type Warranty } from "@/li
 
 export default function WarrantyCard({
   warranty,
+  jobTitle,
   onOpen,
 }: {
   warranty: Warranty;
+  jobTitle?: string;
   onOpen: () => void;
 }) {
   const end = getEndDate(warranty);
@@ -22,6 +24,7 @@ export default function WarrantyCard({
         <div className="min-w-0">
           <h3 className="truncate font-serif text-lg text-beige">{warranty.item}</h3>
           <p className="truncate text-sm text-sand">{warranty.provider || "No company added"}</p>
+          {jobTitle && <p className="truncate text-xs text-sand/80">Job: {jobTitle}</p>}
         </div>
         <WarrantyStatusBadge status={status} />
       </div>

@@ -16,7 +16,8 @@ export type WarrantyDocument = {
 
 export type Warranty = {
   id: string;
-  item: string;
+  jobId: string | null; // the job it came from, if any; the warranty is kept if the job is deleted
+  item: string; // the product or service covered
   warrantyType: WarrantyType;
   provider: string;
   phone: string;

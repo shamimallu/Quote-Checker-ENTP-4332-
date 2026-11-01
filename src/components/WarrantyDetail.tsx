@@ -15,11 +15,13 @@ import {
 
 export default function WarrantyDetail({
   warranty,
+  jobTitle,
   onBack,
   onEdit,
   onDelete,
 }: {
   warranty: Warranty;
+  jobTitle?: string;
   onBack: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -47,6 +49,7 @@ export default function WarrantyDetail({
         <div>
           <h2 className="font-serif text-2xl text-beige">{warranty.item}</h2>
           <p className="text-sm text-sand">{WARRANTY_TYPE_LABELS[warranty.warrantyType]}</p>
+          {jobTitle && <p className="text-sm text-sand">Job: {jobTitle}</p>}
         </div>
         <WarrantyStatusBadge status={getStatus(warranty)} />
       </div>
