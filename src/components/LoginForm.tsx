@@ -159,6 +159,12 @@ export default function LoginForm() {
           {mode === "signin" ? "New here? Create an account" : "Already have an account? Sign in"}
         </button>
       </form>
+      <Link
+        href="/"
+        className="mt-6 self-center rounded-full border border-walnut px-4 py-1.5 text-sm text-beige transition-colors hover:border-caramel hover:text-caramel"
+      >
+        ← Back to home
+      </Link>
     </main>
   );
 }
