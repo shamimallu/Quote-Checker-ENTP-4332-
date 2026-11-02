@@ -71,9 +71,11 @@ The home page, Quote Checker (with job management: create, status, share, delete
   is the last child of `<body>` in `src/app/layout.tsx`. It counts page views on the deployed
   site only (nothing in local dev) and is viewed under the project's Analytics tab in Vercel
   (Hobby plan: 50,000 events/month, no custom events). No third-party cookies; Vercel identifies visitors
-  by a hash of the request that is discarded after 24 hours. Its requests go to
-  `/_vercel/insights/*`, so `src/proxy.ts` excludes `_vercel` from its matcher — keep that,
-  or signed-out visitors' page views get redirected to `/login` and aren't counted.
+  by a hash of the request that is discarded after 24 hours. On Vercel the script and its
+  page-view requests use a random per-project path (like `/f8c69566d99462bf/script.js` and
+  `.../view`) that Vercel handles before `src/proxy.ts` runs, so signed-out visits are counted
+  without any proxy change. The proxy matcher also skips `_vercel`, which covers the older
+  `/_vercel/insights/*` path the package falls back to.
 
 Next.js 16 has breaking changes versus older versions. Before writing framework code, check the bundled docs in `node_modules/next/dist/docs/` rather than relying on memory (see `AGENTS.md`).
 
