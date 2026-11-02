@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { createChat, loadLatestChat, saveExchange } from "@/lib/chat-storage";
 import type { GeminiChatMessage } from "@/lib/gemini";
 import type { ComparisonResult, ExtractedQuote } from "@/lib/quote-types";
 
@@ -29,7 +30,8 @@ function SparkleIcon({ className }: { className: string }) {
 }
 
 // Floating "Ask Gemini" button that opens a chat. Pass the quotes on screen so
-// Gemini can answer questions about them. The chat is cleared on refresh.
+// Gemini can answer questions about them. Chats are saved to the person's account
+// (src/lib/chat-storage.ts) and the latest one is reopened when they sign in.
 export default function GeminiButton({
   quotes,
   comparison,
@@ -47,8 +49,11 @@ export default function GeminiButton({
   const pathname = usePathname();
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  // Bumped on sign-out so a reply that arrives afterwards isn't shown.
+  // Bumped on sign-out and on "New chat" so a reply that arrives afterwards isn't shown.
   const conversationRef = useRef(0);
+  const [chatId, setChatId] = useState<string | null>(null); // the saved conversation, once there is one
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -63,6 +68,9 @@ export default function GeminiButton({
         setDraft("");
         setError(null);
         setSending(false);
+        setChatId(null);
+        setHistoryLoaded(false);
+        setSaveError(null);
         setSignedIn(false);
       } else if (session) {
         setSignedIn(true);
@@ -70,6 +78,26 @@ export default function GeminiButton({
     });
     return () => data.subscription.unsubscribe();
   }, []);
+
+  // Reopen the latest saved conversation once we know who is signed in.
+  useEffect(() => {
+    if (!signedIn || historyLoaded) return;
+    const conversation = conversationRef.current;
+    loadLatestChat()
+      .then((chat) => {
+        if (conversation !== conversationRef.current) return;
+        if (chat) {
+          setChatId(chat.id);
+          setMessages(chat.messages);
+        }
+        setHistoryLoaded(true);
+      })
+      .catch(() => {
+        if (conversation !== conversationRef.current) return;
+        setSaveError("Couldn't load your earlier chat. New questions will still work.");
+        setHistoryLoaded(true);
+      });
+  }, [signedIn, historyLoaded]);
 
   useEffect(() => {
     if (open) endRef.current?.scrollIntoView({ block: "end" });
@@ -81,10 +109,22 @@ export default function GeminiButton({
 
   const full = messages.length >= MAX_MESSAGES - 1;
 
+  // Starts over. The old conversation stays saved; only the newest one is reopened.
+  function startNewChat() {
+    conversationRef.current++;
+    setMessages([]);
+    setChatId(null);
+    setDraft("");
+    setError(null);
+    setSaveError(null);
+    setSending(false);
+    inputRef.current?.focus();
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const text = draft.trim();
-    if (!text || sending || full) return;
+    if (!text || sending || full || !historyLoaded) return;
 
     const conversation = conversationRef.current;
     const next: GeminiChatMessage[] = [...messages, { role: "user", text }];
@@ -102,6 +142,20 @@ export default function GeminiButton({
       if (conversation !== conversationRef.current) return; // signed out while waiting
       if (!res.ok) throw new Error(data.error ?? "Could not reach Gemini.");
       setMessages([...next, { role: "model", text: data.reply }]);
+      setSaveError(null);
+
+      // Save the question and answer. If saving fails, the answer still shows; it just
+      // won't be in the history next time.
+      try {
+        const id = chatId ?? (await createChat(next[0].text));
+        if (conversation !== conversationRef.current) return;
+        if (!chatId) setChatId(id);
+        await saveExchange(id, text, data.reply);
+      } catch {
+        if (conversation === conversationRef.current) {
+          setSaveError("This answer wasn't saved to your chat history.");
+        }
+      }
     } catch (e) {
       if (conversation !== conversationRef.current) return;
       // Put the question back so it can be sent again.
@@ -148,14 +202,25 @@ export default function GeminiButton({
           <SparkleIcon className="h-4 w-4 text-caramel" />
           Ask Gemini
         </h2>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          aria-label="Close chat"
-          className="rounded-full px-2 py-1 text-sm text-sand transition-colors hover:text-beige focus-visible:outline-2 focus-visible:outline-caramel"
-        >
-          ✕
-        </button>
+        <div className="flex items-center gap-1">
+          {signedIn && messages.length > 0 && (
+            <button
+              type="button"
+              onClick={startNewChat}
+              className="rounded-full border border-walnut px-3 py-1 text-xs text-beige transition-colors hover:border-caramel hover:text-caramel"
+            >
+              New chat
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            aria-label="Close chat"
+            className="rounded-full px-2 py-1 text-sm text-sand transition-colors hover:text-beige focus-visible:outline-2 focus-visible:outline-caramel"
+          >
+            ✕
+          </button>
+        </div>
       </header>
 
       <div className="flex min-h-40 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3" aria-live="polite">
@@ -191,7 +256,9 @@ export default function GeminiButton({
         ))}
         {sending && <p className="self-start text-sm text-sand">Gemini is thinking…</p>}
         {error && <p className="text-sm text-red-400">{error}</p>}
-        {full && <p className="text-sm text-sand">This chat is full. Refresh the page to start a new one.</p>}
+        {signedIn && !historyLoaded && <p className="text-sm text-sand">Loading your chat…</p>}
+        {saveError && <p className="text-sm text-sand">{saveError}</p>}
+        {full && <p className="text-sm text-sand">This chat is full. Start a new chat to keep going.</p>}
         <div ref={endRef} />
       </div>
 
@@ -213,7 +280,7 @@ export default function GeminiButton({
             />
             <button
               type="submit"
-              disabled={sending || full || !draft.trim()}
+              disabled={sending || full || !draft.trim() || !historyLoaded}
               className="rounded-full bg-caramel px-4 py-2 text-sm text-espresso transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               Send
