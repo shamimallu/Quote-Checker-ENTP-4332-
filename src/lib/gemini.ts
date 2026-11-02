@@ -1,8 +1,7 @@
 import { GoogleGenAI, type Part } from "@google/genai";
 
-// "gemini-flash-latest" always points at Google's newest Flash model.
-// Set GEMINI_MODEL in .env.local to pin a specific one instead.
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
+// Set GEMINI_MODEL in .env.local to use a different model.
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
 
 // Gemini is opt-in: set AI_PROVIDER=gemini in .env.local. Otherwise the
 // Quote Checker keeps using Claude.
