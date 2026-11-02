@@ -9,6 +9,8 @@ function isPublic(pathname: string) {
   return PUBLIC_PATHS.some((p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`)));
 }
 
+const AUTH_TIMEOUT_MS = 2000;
+
 // Refreshes the login session cookie and sends signed-out visitors to /login.
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -28,9 +30,15 @@ export async function updateSession(request: NextRequest) {
   });
 
   // getUser() checks the session with Supabase, unlike getSession() which trusts the cookie.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // If Supabase can't be reached, give up quickly and treat the visitor as signed out
+  // instead of freezing every page.
+  const user = await Promise.race([
+    supabase.auth
+      .getUser()
+      .then(({ data }) => data.user)
+      .catch(() => null),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), AUTH_TIMEOUT_MS)),
+  ]);
 
   const { pathname } = request.nextUrl;
   if (!user && !isPublic(pathname)) {
