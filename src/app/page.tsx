@@ -1,6 +1,6 @@
 import Link from "next/link";
 import AuthStatus from "@/components/AuthStatus";
-import MuseButton from "@/components/MuseButton";
+import GeminiButton from "@/components/GeminiButton";
 import SectionIcon from "@/components/SectionIcon";
 import { sections } from "@/lib/sections";
 
@@ -43,7 +43,7 @@ export default function Home() {
       </div>
 
       <AuthStatus />
-      <MuseButton />
+      <GeminiButton />
     </main>
   );
 }

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAnthropicClient } from "@/lib/anthropic";
-import type { ExtractedQuote } from "@/lib/quote-types";
+import { geminiErrorMessage, generateGeminiJson, getGeminiClient, isGeminiSelected } from "@/lib/gemini";
+import { MAX_QUOTE_FILE_BYTES, MAX_QUOTE_FILE_LABEL, type ExtractedQuote } from "@/lib/quote-types";
 
-const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB
 const ACCEPTED_TYPES: Record<string, true> = {
   "application/pdf": true,
   "image/jpeg": true,
@@ -66,12 +66,16 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-  if (file.size > MAX_FILE_BYTES) {
-    return NextResponse.json({ error: "File is too large (10MB max)." }, { status: 400 });
+  if (file.size > MAX_QUOTE_FILE_BYTES) {
+    return NextResponse.json({ error: `File is too large (${MAX_QUOTE_FILE_LABEL} max).` }, { status: 400 });
   }
 
   const bytes = await file.arrayBuffer();
   const base64Data = Buffer.from(bytes).toString("base64");
+
+  if (isGeminiSelected()) {
+    return extractWithGemini(file, base64Data);
+  }
 
   const documentBlock =
     file.type === "application/pdf"
@@ -92,9 +96,11 @@ export async function POST(request: Request) {
   try {
     client = getAnthropicClient();
   } catch (error) {
+    // The real reason (a missing API key) is for whoever runs the app, not the person using it.
+    console.error("AI is not configured:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "AI is not configured." },
-      { status: 500 }
+      { error: "The AI assistant isn't available right now. Please try again later." },
+      { status: 503 }
     );
   }
 
@@ -133,5 +139,47 @@ export async function POST(request: Request) {
     return NextResponse.json(quote);
   } catch {
     return NextResponse.json({ error: "Something went wrong reading that quote." }, { status: 502 });
+  }
+}
+
+async function extractWithGemini(file: File, base64Data: string) {
+  let client;
+  try {
+    client = getGeminiClient();
+  } catch (error) {
+    // The real reason (a missing API key) is for whoever runs the app, not the person using it.
+    console.error("AI is not configured:", error);
+    return NextResponse.json(
+      { error: "The AI assistant isn't available right now. Please try again later." },
+      { status: 503 }
+    );
+  }
+
+  try {
+    const parsed = (await generateGeminiJson(
+      client,
+      [
+        { inlineData: { mimeType: file.type, data: base64Data } },
+        { text: "This is a contractor's repair quote. Extract its contents." },
+      ],
+      EXTRACT_TOOL.input_schema
+    )) as Omit<ExtractedQuote, "id" | "fileName"> | null;
+    if (!parsed) {
+      return NextResponse.json({ error: "Could not read that quote." }, { status: 502 });
+    }
+
+    const quote: ExtractedQuote = {
+      id: crypto.randomUUID(),
+      fileName: file.name,
+      ...parsed,
+    };
+
+    return NextResponse.json(quote);
+  } catch (error) {
+    console.error("Gemini could not read a quote:", error);
+    return NextResponse.json(
+      { error: geminiErrorMessage(error, "Something went wrong reading that quote.") },
+      { status: 502 }
+    );
   }
 }

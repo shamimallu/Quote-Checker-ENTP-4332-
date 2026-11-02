@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAnthropicClient } from "@/lib/anthropic";
+import { geminiErrorMessage, generateGeminiJson, getGeminiClient, isGeminiSelected } from "@/lib/gemini";
 import costReference from "@/lib/cost-reference.json";
 import type { ComparisonResult, ExtractedQuote } from "@/lib/quote-types";
 
@@ -70,13 +71,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Need at least two quotes to compare." }, { status: 400 });
   }
 
+  if (isGeminiSelected()) {
+    return compareWithGemini(quotes);
+  }
+
   let client;
   try {
     client = getAnthropicClient();
   } catch (error) {
+    // The real reason (a missing API key) is for whoever runs the app, not the person using it.
+    console.error("AI is not configured:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "AI is not configured." },
-      { status: 500 }
+      { error: "The AI assistant isn't available right now. Please try again later." },
+      { status: 503 }
     );
   }
 
@@ -111,5 +118,45 @@ export async function POST(request: Request) {
     return NextResponse.json(result);
   } catch {
     return NextResponse.json({ error: "Something went wrong comparing those quotes." }, { status: 502 });
+  }
+}
+
+async function compareWithGemini(quotes: ExtractedQuote[]) {
+  let client;
+  try {
+    client = getGeminiClient();
+  } catch (error) {
+    // The real reason (a missing API key) is for whoever runs the app, not the person using it.
+    console.error("AI is not configured:", error);
+    return NextResponse.json(
+      { error: "The AI assistant isn't available right now. Please try again later." },
+      { status: 503 }
+    );
+  }
+
+  try {
+    const result = (await generateGeminiJson(
+      client,
+      [
+        {
+          text:
+            "Compare these contractor quotes for the same home repair job. Flag line items missing from one quote but present in others, and flag prices that look too high either compared to the other quotes here or compared to the reference price ranges below.\n\n" +
+            `Quotes:\n${JSON.stringify(quotes, null, 2)}\n\n` +
+            `Reference price ranges (for common repair items, not specific to these quotes):\n${JSON.stringify(costReference.items, null, 2)}`,
+        },
+      ],
+      COMPARE_TOOL.input_schema
+    )) as ComparisonResult | null;
+    if (!result) {
+      return NextResponse.json({ error: "Could not compare those quotes." }, { status: 502 });
+    }
+
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("Gemini could not compare quotes:", error);
+    return NextResponse.json(
+      { error: geminiErrorMessage(error, "Something went wrong comparing those quotes.") },
+      { status: 502 }
+    );
   }
 }
