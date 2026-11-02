@@ -1,7 +1,9 @@
 import Link from "next/link";
 import AuthStatus from "@/components/AuthStatus";
+import CategoryCard from "@/components/CategoryCard";
 import GeminiButton from "@/components/GeminiButton";
 import SectionIcon from "@/components/SectionIcon";
+import { jobCategories } from "@/lib/categories";
 import { sections } from "@/lib/sections";
 
 export default function Home() {
@@ -41,6 +43,16 @@ export default function Home() {
           ))}
         </nav>
       </div>
+
+      {/* what needs fixing */}
+      <section className="relative mt-20 w-full max-w-4xl">
+        <h2 className="text-center font-serif text-2xl text-beige">What needs fixing?</h2>
+        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          {jobCategories.map((category) => (
+            <CategoryCard key={category.slug} category={category} />
+          ))}
+        </div>
+      </section>
 
       <AuthStatus />
       <GeminiButton />
