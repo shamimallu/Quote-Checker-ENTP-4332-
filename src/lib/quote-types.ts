@@ -1,3 +1,7 @@
+// Vercel refuses request bodies over about 4.5MB before our code runs, so keep uploads under that.
+export const MAX_QUOTE_FILE_BYTES = 4 * 1024 * 1024;
+export const MAX_QUOTE_FILE_LABEL = "4MB";
+
 export type LineItem = {
   description: string;
   price: number;

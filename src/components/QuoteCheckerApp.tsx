@@ -10,7 +10,12 @@ import QuoteComparison from "@/components/QuoteComparison";
 import { loadJobs } from "@/lib/job-storage";
 import { canEditJob, type Job } from "@/lib/job-types";
 import { deleteQuote, loadQuotes, saveComparison, saveQuote } from "@/lib/quote-storage";
-import type { ComparisonResult, ExtractedQuote } from "@/lib/quote-types";
+import {
+  MAX_QUOTE_FILE_BYTES,
+  MAX_QUOTE_FILE_LABEL,
+  type ComparisonResult,
+  type ExtractedQuote,
+} from "@/lib/quote-types";
 
 // Remembers which job was open last, in this browser only.
 const SELECTED_JOB_KEY = "homi:selected-job";
@@ -99,15 +104,24 @@ export default function QuoteCheckerApp() {
 
   async function handleUpload(file: File) {
     if (!job) return;
+    if (file.size > MAX_QUOTE_FILE_BYTES) {
+      setUploadError(`That file is too large (${MAX_QUOTE_FILE_LABEL} max). Try a smaller PDF or photo.`);
+      return;
+    }
     setUploading(true);
     setUploadError(null);
     try {
       const body = new FormData();
       body.append("file", file);
       const res = await fetch("/api/extract-quote", { method: "POST", body });
-      const data = await res.json();
-      if (!res.ok) {
-        setUploadError(data.error ?? "Could not read that quote.");
+      // Vercel answers an oversized upload with a plain-text 413, not our JSON.
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data) {
+        setUploadError(
+          res.status === 413
+            ? `That file is too large (${MAX_QUOTE_FILE_LABEL} max). Try a smaller PDF or photo.`
+            : (data?.error ?? "Could not read that quote. Try again.")
+        );
         return;
       }
       const saved = await saveQuote(job.id, { ...(data as Omit<ExtractedQuote, "filePath">), filePath: null }, file);

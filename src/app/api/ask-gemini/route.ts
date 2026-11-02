@@ -61,9 +61,11 @@ export async function POST(request: Request) {
   try {
     client = getGeminiClient();
   } catch (error) {
+    // The real reason (a missing API key) is for whoever runs the app, not the person using it.
+    console.error("AI is not configured:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "AI is not configured." },
-      { status: 500 }
+      { error: "The AI assistant isn't available right now. Please try again later." },
+      { status: 503 }
     );
   }
 

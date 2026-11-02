@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import type { GeminiChatMessage } from "@/lib/gemini";
 import type { ComparisonResult, ExtractedQuote } from "@/lib/quote-types";
 
@@ -39,8 +42,17 @@ export default function GeminiButton({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The chat needs an account (the API route is for signed-in people), but the home page doesn't.
+  const [signedIn, setSignedIn] = useState<boolean | undefined>(undefined);
+  const pathname = usePathname();
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    createClient()
+      .auth.getUser()
+      .then(({ data }) => setSignedIn(Boolean(data.user)));
+  }, []);
 
   useEffect(() => {
     if (open) endRef.current?.scrollIntoView({ block: "end" });
@@ -127,7 +139,18 @@ export default function GeminiButton({
       </header>
 
       <div className="flex min-h-40 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3" aria-live="polite">
-        {messages.length === 0 && (
+        {signedIn === false && (
+          <p className="text-sm text-sand">
+            Sign in to ask Gemini about your quotes.{" "}
+            <Link
+              href={`/login?next=${encodeURIComponent(pathname)}`}
+              className="text-caramel underline hover:text-beige"
+            >
+              Sign in
+            </Link>
+          </p>
+        )}
+        {signedIn !== false && messages.length === 0 && (
           <p className="text-sm text-sand">
             {quotes?.length
               ? "Ask about the quotes on this page, like “Is this deposit too high?”"
@@ -152,33 +175,35 @@ export default function GeminiButton({
         <div ref={endRef} />
       </div>
 
-      <form onSubmit={handleSubmit} className="border-t border-walnut p-3">
-        <div className="flex items-end gap-2">
-          <textarea
-            ref={inputRef}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) handleSubmit(event);
-            }}
-            rows={2}
-            maxLength={MAX_MESSAGE_CHARS}
-            placeholder="Type your question"
-            aria-label="Your question"
-            className="min-w-0 flex-1 resize-none rounded-xl border border-walnut bg-espresso px-3 py-2 text-sm text-beige placeholder:text-sand focus:border-caramel focus:outline-none"
-          />
-          <button
-            type="submit"
-            disabled={sending || full || !draft.trim()}
-            className="rounded-full bg-caramel px-4 py-2 text-sm text-espresso transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            Send
-          </button>
-        </div>
-        <p className="mt-2 text-xs text-sand">
-          Answers come from Google Gemini and can be wrong. Don&apos;t share personal details.
-        </p>
-      </form>
+      {signedIn !== false && (
+        <form onSubmit={handleSubmit} className="border-t border-walnut p-3">
+          <div className="flex items-end gap-2">
+            <textarea
+              ref={inputRef}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) handleSubmit(event);
+              }}
+              rows={2}
+              maxLength={MAX_MESSAGE_CHARS}
+              placeholder="Type your question"
+              aria-label="Your question"
+              className="min-w-0 flex-1 resize-none rounded-xl border border-walnut bg-espresso px-3 py-2 text-sm text-beige placeholder:text-sand focus:border-caramel focus:outline-none"
+            />
+            <button
+              type="submit"
+              disabled={sending || full || !draft.trim()}
+              className="rounded-full bg-caramel px-4 py-2 text-sm text-espresso transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              Send
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-sand">
+            Answers come from Google Gemini and can be wrong. Don&apos;t share personal details.
+          </p>
+        </form>
+      )}
     </section>
   );
 }

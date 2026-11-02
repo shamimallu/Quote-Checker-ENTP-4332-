@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAnthropicClient } from "@/lib/anthropic";
 import { geminiErrorMessage, generateGeminiJson, getGeminiClient, isGeminiSelected } from "@/lib/gemini";
-import type { ExtractedQuote } from "@/lib/quote-types";
+import { MAX_QUOTE_FILE_BYTES, MAX_QUOTE_FILE_LABEL, type ExtractedQuote } from "@/lib/quote-types";
 
-const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB
 const ACCEPTED_TYPES: Record<string, true> = {
   "application/pdf": true,
   "image/jpeg": true,
@@ -67,8 +66,8 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-  if (file.size > MAX_FILE_BYTES) {
-    return NextResponse.json({ error: "File is too large (10MB max)." }, { status: 400 });
+  if (file.size > MAX_QUOTE_FILE_BYTES) {
+    return NextResponse.json({ error: `File is too large (${MAX_QUOTE_FILE_LABEL} max).` }, { status: 400 });
   }
 
   const bytes = await file.arrayBuffer();
@@ -97,9 +96,11 @@ export async function POST(request: Request) {
   try {
     client = getAnthropicClient();
   } catch (error) {
+    // The real reason (a missing API key) is for whoever runs the app, not the person using it.
+    console.error("AI is not configured:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "AI is not configured." },
-      { status: 500 }
+      { error: "The AI assistant isn't available right now. Please try again later." },
+      { status: 503 }
     );
   }
 
@@ -146,9 +147,11 @@ async function extractWithGemini(file: File, base64Data: string) {
   try {
     client = getGeminiClient();
   } catch (error) {
+    // The real reason (a missing API key) is for whoever runs the app, not the person using it.
+    console.error("AI is not configured:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "AI is not configured." },
-      { status: 500 }
+      { error: "The AI assistant isn't available right now. Please try again later." },
+      { status: 503 }
     );
   }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { MAX_QUOTE_FILE_LABEL } from "@/lib/quote-types";
 
 export default function QuoteUploadForm({
   onUpload,
@@ -17,7 +18,7 @@ export default function QuoteUploadForm({
   return (
     <div className="rounded-2xl border border-walnut bg-bark p-6">
       <h2 className="font-serif text-xl text-beige">Upload a quote</h2>
-      <p className="mt-1 text-sm text-sand">PDF, JPEG, PNG, or WEBP — up to 10MB.</p>
+      <p className="mt-1 text-sm text-sand">PDF, JPEG, PNG, or WEBP — up to {MAX_QUOTE_FILE_LABEL}.</p>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <input
