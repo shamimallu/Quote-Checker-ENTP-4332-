@@ -109,7 +109,24 @@ There is no test runner configured yet.
 
 ## Design
 
-Dark, warm, neutral palette defined as Tailwind colors in `src/app/globals.css`: `espresso` (page background), `bark` (surfaces), `walnut` (borders), `cocoa`, `caramel` (accent), `sand` (muted text), `beige` (main text). Use these tokens rather than raw hex values. Headings and the "homi" wordmark use the serif font (`font-serif`, Fraunces); body text uses `font-sans` (Geist).
+homi has an official design system — read [`DESIGN.md`](DESIGN.md) before implementing or
+modifying any UI. In short:
+
+- Treat `src/app/globals.css` as the single source of truth for actual color, typography, and
+  radius token values — `DESIGN.md` explains what they mean, globals.css has the real values.
+- Keep using Tailwind CSS v4 (`@theme inline` in globals.css); don't introduce another styling
+  framework or hardcode colors/font families in individual components.
+- Use the official named colors (Espresso, Dark Cocoa, Mocha, Champagne, Warm Cream, Taupe,
+  Soft Linen, Cedar, Sage, Terracotta Red, Antique Gold) or the semantic tokens built from them
+  (`bg-primary`, `text-muted-foreground`, `border-border`, `bg-destructive`, etc.) for new UI.
+  Some older components still use legacy utility names (`espresso`, `bark`, `walnut`, `cocoa`,
+  `caramel`, `sand`, `beige`); these still work but are documented as pending migration in
+  `DESIGN.md` — don't carry them into new UI.
+- Headings, the "homi" wordmark, and page titles use `font-heading` (DM Serif Display, also
+  aliased as `font-serif`); everything else uses `font-body` (Gabarito, also aliased as
+  `font-sans`, and the default body font).
+- Default border radius is `0.75rem` (`--radius`). Soft, rounded components are part of the brand.
+- homi is dark-mode only — don't add a light theme unless explicitly instructed.
 - Import alias `@/*` maps to `src/*`.
 
 ## Conventions
