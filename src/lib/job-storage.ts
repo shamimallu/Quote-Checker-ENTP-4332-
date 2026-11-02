@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/client";
 import { currentUserId } from "@/lib/supabase/current-user";
 import { removeFolder } from "@/lib/file-storage";
 import { deleteWarrantiesForJob } from "@/lib/warranty-storage";
-import type { Job, JobStatus, MemberRole } from "@/lib/job-types";
+import type { Job, JobDetails, JobStatus, MemberRole, PermitStatus } from "@/lib/job-types";
 
 // Client-only. Jobs live in the Supabase `jobs` table and sharing in `job_members`.
 // Row level security shows each person their own jobs plus jobs shared with them.
@@ -13,7 +13,36 @@ type JobRow = {
   status: JobStatus;
   owner: string;
   created_at: string;
+  address: string;
+  description: string;
+  contractor_id: string | null;
+  accepted_quote_id: string | null;
+  baseline_total: number | string | null;
+  baseline_deposit: number | string | null;
+  baseline_warranty_terms: string | null;
+  permit_status: PermitStatus;
+  permit_number: string;
   job_members: { user_id: string; role: MemberRole }[];
+};
+
+const JOB_COLUMNS =
+  "id, title, status, owner, created_at, address, description, contractor_id, accepted_quote_id, " +
+  "baseline_total, baseline_deposit, baseline_warranty_terms, permit_status, permit_number";
+
+// Supabase returns numeric columns as numbers or strings depending on size; normalise them.
+const toNumber = (value: number | string | null) => (value === null ? null : Number(value));
+
+const DETAIL_COLUMNS: Record<keyof JobDetails, string> = {
+  title: "title",
+  address: "address",
+  description: "description",
+  contractorId: "contractor_id",
+  acceptedQuoteId: "accepted_quote_id",
+  baselineTotal: "baseline_total",
+  baselineDeposit: "baseline_deposit",
+  baselineWarrantyTerms: "baseline_warranty_terms",
+  permitStatus: "permit_status",
+  permitNumber: "permit_number",
 };
 
 export async function loadJobs(): Promise<Job[]> {
@@ -21,7 +50,7 @@ export async function loadJobs(): Promise<Job[]> {
   const userId = await currentUserId();
   const { data, error } = await supabase
     .from("jobs")
-    .select("id, title, status, owner, created_at, job_members(user_id, role)")
+    .select(`${JOB_COLUMNS}, job_members(user_id, role)`)
     .order("created_at", { ascending: false });
   if (error) throw error;
   const rows = data as JobRow[];
@@ -47,14 +76,31 @@ export async function loadJobs(): Promise<Job[]> {
       .filter((m) => m.user_id !== row.owner)
       .map((m) => ({ userId: m.user_id, role: m.role, email: emails.get(m.user_id) ?? null })),
     createdAt: row.created_at,
+    address: row.address,
+    description: row.description,
+    contractorId: row.contractor_id,
+    acceptedQuoteId: row.accepted_quote_id,
+    baselineTotal: toNumber(row.baseline_total),
+    baselineDeposit: toNumber(row.baseline_deposit),
+    baselineWarrantyTerms: row.baseline_warranty_terms,
+    permitStatus: row.permit_status,
+    permitNumber: row.permit_number,
   }));
 }
 
-export async function createJob(title: string): Promise<string> {
+export async function createJob(
+  title: string,
+  details: { address?: string; description?: string } = {}
+): Promise<string> {
   const userId = await currentUserId();
   const { data, error } = await createClient()
     .from("jobs")
-    .insert({ title: title.trim(), owner: userId })
+    .insert({
+      title: title.trim(),
+      owner: userId,
+      address: details.address?.trim() ?? "",
+      description: details.description?.trim() ?? "",
+    })
     .select("id")
     .single();
   if (error) throw error;
@@ -68,6 +114,16 @@ export async function updateJobStatus(jobId: string, status: JobStatus): Promise
     .eq("id", jobId)
     .select("id");
   if (error) throw error;
+  if (!data || data.length === 0) throw new Error("You can only view this job, not change it.");
+}
+
+// Saves only the fields given. Viewers can't change a job; that comes back as zero rows.
+export async function updateJobDetails(jobId: string, changes: Partial<JobDetails>): Promise<void> {
+  const row = Object.fromEntries(
+    Object.entries(changes).map(([key, value]) => [DETAIL_COLUMNS[key as keyof JobDetails], value])
+  );
+  const { data, error } = await createClient().from("jobs").update(row).eq("id", jobId).select("id");
+  if (error) throw new Error(error.message);
   if (!data || data.length === 0) throw new Error("You can only view this job, not change it.");
 }
 

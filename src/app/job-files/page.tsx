@@ -1,5 +1,5 @@
-import ComingSoon from "@/components/ComingSoon";
+import JobFilesApp from "@/components/JobFilesApp";
 
 export default function JobFiles() {
-  return <ComingSoon href="/job-files" />;
+  return <JobFilesApp />;
 }

@@ -15,7 +15,7 @@ The app has four sections, linked from the home page:
 - **Warranty Vault** (`/warranty-vault`): store and review warranty terms
 - **Proof Log** (`/proof-log`): keep a reliable record of the work
 
-The home page, Quote Checker (with job management: create, status, share, delete), and Warranty Vault are built and save to Supabase. Job Files, Proof Log and Muse have database tables but no screens yet; their pages are placeholders.
+The home page, Quote Checker, Job Files and Warranty Vault are built and save to Supabase. Proof Log has database tables but no screen yet; its page is a placeholder.
 
 ## Stack
 
@@ -54,8 +54,11 @@ The home page, Quote Checker (with job management: create, status, share, delete
     more than once). New tables need an explicit `grant ... to authenticated` — this
     project does not grant table access automatically — plus RLS policies.
   - Data model: everything hangs off **jobs** (status: getting quotes, hired, in
-    progress, done). A job has `quotes` (with the Quote Checker's comparison saved in
-    `analysis`), `job_files`, `proof_log_entries`, and `warranties`. `job_members`
+    progress, done; plus address, description, permit, the picked `contractor_id`, and the
+    accepted quote's numbers copied into `baseline_*`). A job has `quotes` (with the Quote
+    Checker's comparison saved in `analysis`), `job_files`, `job_payments`,
+    `job_change_orders`, `proof_log_entries`, and `warranties`. `contractors` is each
+    person's own list; a database trigger only lets you put your own contractor on a job. `job_members`
     shares a job with another account as an editor or viewer. `muse_conversations` /
     `muse_messages` hold the Ask Gemini chat history, private to each person. `profiles` is created on sign-up.
   - Delete rules: deleting a job deletes its quotes, files and proof log, but only
@@ -98,7 +101,8 @@ There is no test runner configured yet.
 - `src/app/` — App Router routes. `layout.tsx` is the root layout (fonts, metadata), `page.tsx` is the home page, and each section has its own folder (e.g. `src/app/quote-checker/page.tsx`).
 - `src/lib/sections.ts` — the single list of app sections (title, route, icon). The home page and placeholders read from it, so add or rename sections here.
 - `src/components/` — shared components (`SectionIcon`, `ComingSoon`, `AuthStatus`, `GeminiButton`) and each section's UI.
-- Jobs: `src/lib/job-types.ts`, `src/lib/job-storage.ts`, and `src/components/JobBar.tsx` (the job picker at the top of the Quote Checker).
+- Jobs: `src/lib/job-types.ts`, `src/lib/job-storage.ts`, `src/lib/use-jobs.ts` (loads jobs and remembers the selected one, shared by Quote Checker and Job Files), and `src/components/JobBar.tsx` (the job picker, create/status/share/delete).
+- Job Files (`/job-files`): a neutral record of one repair job. `src/components/JobFilesApp.tsx` loads the job's record; one component per section in `src/components/job-files/` (alerts, details + permit, contractor, accepted quote, money, files). Storage: `contractor-storage.ts` (the homeowner's reusable contractor list; bring-your-own, never lead fees), `job-baseline.ts` (accepting a quote copies its total, deposit and warranty terms onto the job), `job-ledger-storage.ts` (payments, change orders), `job-file-storage.ts` (uploads to `homi-files` under `jobs/<id>/files/`). `src/lib/job-alerts.ts` computes the alerts in plain code, no AI: deposit over 30% of the quote, change orders raising the price, paid more than quote + change orders, no permit recorded once hired, no warranty, no contract once hired.
 - Quote Checker: `src/lib/quote-types.ts`, `src/lib/quote-storage.ts`, and `src/components/Quote*.tsx`.
 - Warranty Vault: `src/lib/warranty-types.ts` (the warranty shape, end-date and status rules — "ending soon" is within `ENDING_SOON_DAYS` = 60), `src/lib/warranty-storage.ts` (saves to the `warranties` table and the `homi-files` bucket), and `src/components/Warranty*.tsx`.
 - `public/` — static assets served from `/`.

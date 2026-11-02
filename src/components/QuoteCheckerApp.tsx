@@ -1,14 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import GeminiButton from "@/components/GeminiButton";
 import JobBar from "@/components/JobBar";
 import QuoteUploadForm from "@/components/QuoteUploadForm";
 import QuoteList from "@/components/QuoteList";
 import QuoteComparison from "@/components/QuoteComparison";
-import { loadJobs } from "@/lib/job-storage";
-import { canEditJob, type Job } from "@/lib/job-types";
+import { canEditJob } from "@/lib/job-types";
+import { useJobs } from "@/lib/use-jobs";
 import { deleteQuote, loadQuotes, saveComparison, saveQuote } from "@/lib/quote-storage";
 import {
   MAX_QUOTE_FILE_BYTES,
@@ -17,63 +17,15 @@ import {
   type ExtractedQuote,
 } from "@/lib/quote-types";
 
-// Remembers which job was open last, in this browser only.
-const SELECTED_JOB_KEY = "homi:selected-job";
-function rememberedJobId() {
-  try {
-    return localStorage.getItem(SELECTED_JOB_KEY);
-  } catch {
-    return null;
-  }
-}
-function rememberJobId(id: string | null) {
-  try {
-    if (id) localStorage.setItem(SELECTED_JOB_KEY, id);
-    else localStorage.removeItem(SELECTED_JOB_KEY);
-  } catch {}
-}
-
 export default function QuoteCheckerApp() {
-  const [jobs, setJobs] = useState<Job[] | null>(null);
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [jobsError, setJobsError] = useState(false);
+  const { jobs, job, jobsError, selectJob: selectJobId, refreshJobs } = useJobs();
+  const jobId = job?.id ?? null;
   const [quotes, setQuotes] = useState<ExtractedQuote[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [comparing, setComparing] = useState(false);
   const [compareError, setCompareError] = useState<string | null>(null);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
-
-  // Shows the loaded jobs and selects `preferred` if it still exists, else the remembered or newest job.
-  const showJobs = useCallback((list: Job[], preferred: string | null) => {
-    const pick =
-      [preferred, rememberedJobId()].find((id) => id && list.some((j) => j.id === id)) ??
-      list[0]?.id ??
-      null;
-    setJobs(list);
-    setJobId(pick);
-    rememberJobId(pick);
-    setJobsError(false);
-  }, []);
-
-  const showJobsError = useCallback(() => {
-    setJobs((current) => current ?? []);
-    setJobsError(true);
-  }, []);
-
-  useEffect(() => {
-    loadJobs()
-      .then((list) => showJobs(list, null))
-      .catch(showJobsError);
-  }, [showJobs, showJobsError]);
-
-  async function refreshJobs(preferred: string | null) {
-    try {
-      showJobs(await loadJobs(), preferred);
-    } catch {
-      showJobsError();
-    }
-  }
 
   useEffect(() => {
     if (!jobId) return;
@@ -91,15 +43,13 @@ export default function QuoteCheckerApp() {
     };
   }, [jobId]);
 
-  const job = jobs?.find((j) => j.id === jobId) ?? null;
   const editable = job ? canEditJob(job) : false;
   const visibleQuotes = job ? quotes : [];
 
   function selectJob(id: string) {
     setQuotes([]);
     setComparison(null);
-    setJobId(id);
-    rememberJobId(id);
+    selectJobId(id);
   }
 
   async function handleUpload(file: File) {

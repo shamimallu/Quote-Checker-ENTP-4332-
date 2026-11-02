@@ -541,3 +541,174 @@ create policy "homi-files: delete" on storage.objects
         and private.can_edit_warranty(private.to_uuid((storage.foldername(name))[2])))
     )
   );
+
+-- =====================================================================
+-- 7. Job Files: job details, the homeowner's own contractors, the accepted quote as the
+-- job's baseline, permit info, payments and change orders.
+-- =====================================================================
+
+-- contractors: the homeowner's own list, reused across jobs. Bring-your-own: no marketplace,
+-- no lead fees. Private to the person who added them, except that everyone on a job can see
+-- the contractor picked for it.
+create table if not exists public.contractors (
+  id uuid primary key default gen_random_uuid(),
+  owner uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  name text not null check (length(trim(name)) > 0),
+  phone text not null default '',
+  license_number text not null default '',
+  created_at timestamptz not null default now()
+);
+create index if not exists contractors_owner_idx on public.contractors (owner);
+
+alter table public.jobs
+  add column if not exists address text not null default '',
+  add column if not exists description text not null default '',
+  add column if not exists contractor_id uuid references public.contractors (id) on delete set null,
+  add column if not exists accepted_quote_id uuid,
+  -- Copied from the accepted quote, so the record survives if that quote is later deleted.
+  add column if not exists baseline_total numeric(12, 2) check (baseline_total >= 0),
+  add column if not exists baseline_deposit numeric(12, 2) check (baseline_deposit >= 0),
+  add column if not exists baseline_warranty_terms text,
+  add column if not exists permit_status text not null default 'unknown'
+    check (permit_status in ('unknown', 'not_required', 'applied', 'approved')),
+  add column if not exists permit_number text not null default '';
+create index if not exists jobs_contractor_idx on public.jobs (contractor_id);
+
+-- The accepted quote must be one of this job's quotes. Deleting it clears only the link.
+alter table public.jobs drop constraint if exists jobs_accepted_quote_fk;
+alter table public.quotes drop constraint if exists quotes_id_job_key;
+alter table public.quotes add constraint quotes_id_job_key unique (id, job_id);
+alter table public.jobs add constraint jobs_accepted_quote_fk
+  foreign key (accepted_quote_id, id) references public.quotes (id, job_id)
+  on delete set null (accepted_quote_id);
+
+-- A job can only be given a contractor from the signed-in person's own list. Without this,
+-- someone could link another person's contractor to their job and read it through the job.
+create or replace function private.check_job_contractor()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.contractor_id is not null
+     and (tg_op = 'INSERT' or new.contractor_id is distinct from old.contractor_id)
+     and not exists (
+       select 1 from public.contractors
+       where id = new.contractor_id and owner = (select auth.uid())
+     ) then
+    raise exception 'You can only pick a contractor from your own list.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists jobs_check_contractor on public.jobs;
+create trigger jobs_check_contractor
+  before insert or update of contractor_id on public.jobs
+  for each row execute function private.check_job_contractor();
+
+create or replace function private.can_view_contractor(p_contractor_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.jobs
+    where contractor_id = p_contractor_id and private.can_view_job(id)
+  );
+$$;
+grant execute on function private.can_view_contractor(uuid) to authenticated;
+
+-- Owner and editors may change these job columns (still never the owner).
+revoke update on public.jobs from authenticated, anon;
+grant update (title, status, address, description, contractor_id, accepted_quote_id,
+  baseline_total, baseline_deposit, baseline_warranty_terms, permit_status, permit_number)
+  on public.jobs to authenticated;
+
+-- Final invoices and permit documents.
+alter table public.job_files drop constraint if exists job_files_kind_check;
+alter table public.job_files add constraint job_files_kind_check
+  check (kind in ('contract', 'photo', 'receipt', 'invoice', 'permit', 'other'));
+
+-- job_payments: money paid to the contractor.
+create table if not exists public.job_payments (
+  id uuid primary key default gen_random_uuid(),
+  job_id uuid not null references public.jobs (id) on delete cascade,
+  created_by uuid default auth.uid() references auth.users (id) on delete set null,
+  amount numeric(12, 2) not null check (amount > 0),
+  paid_on date not null default current_date,
+  method text not null default 'other'
+    check (method in ('cash', 'check', 'card', 'bank_transfer', 'financing', 'other')),
+  note text not null default '',
+  created_at timestamptz not null default now()
+);
+create index if not exists job_payments_job_idx on public.job_payments (job_id);
+
+-- job_change_orders: work added (or removed) after the quote. A negative cost is a credit.
+create table if not exists public.job_change_orders (
+  id uuid primary key default gen_random_uuid(),
+  job_id uuid not null references public.jobs (id) on delete cascade,
+  created_by uuid default auth.uid() references auth.users (id) on delete set null,
+  description text not null check (length(trim(description)) > 0),
+  added_cost numeric(12, 2) not null,
+  ordered_on date not null default current_date,
+  created_at timestamptz not null default now()
+);
+create index if not exists job_change_orders_job_idx on public.job_change_orders (job_id);
+
+grant select, insert, update, delete on
+  public.contractors, public.job_payments, public.job_change_orders to authenticated;
+revoke all on public.contractors, public.job_payments, public.job_change_orders from anon;
+alter table public.contractors enable row level security;
+alter table public.job_payments enable row level security;
+alter table public.job_change_orders enable row level security;
+
+-- contractors: only the person who added one can change or delete it; it is also visible to
+-- everyone on a job it's picked for.
+drop policy if exists "contractors: read" on public.contractors;
+create policy "contractors: read" on public.contractors
+  for select to authenticated
+  using (owner = (select auth.uid()) or private.can_view_contractor(id));
+drop policy if exists "contractors: add own" on public.contractors;
+create policy "contractors: add own" on public.contractors
+  for insert to authenticated with check (owner = (select auth.uid()));
+drop policy if exists "contractors: edit own" on public.contractors;
+create policy "contractors: edit own" on public.contractors
+  for update to authenticated
+  using (owner = (select auth.uid())) with check (owner = (select auth.uid()));
+drop policy if exists "contractors: delete own" on public.contractors;
+create policy "contractors: delete own" on public.contractors
+  for delete to authenticated using (owner = (select auth.uid()));
+
+-- job_payments and job_change_orders: same rules as job_files.
+drop policy if exists "job_payments: read" on public.job_payments;
+create policy "job_payments: read" on public.job_payments
+  for select to authenticated using (private.can_view_job(job_id));
+drop policy if exists "job_payments: add" on public.job_payments;
+create policy "job_payments: add" on public.job_payments
+  for insert to authenticated
+  with check (private.can_edit_job(job_id) and created_by = (select auth.uid()));
+drop policy if exists "job_payments: edit" on public.job_payments;
+create policy "job_payments: edit" on public.job_payments
+  for update to authenticated
+  using (private.can_edit_job(job_id)) with check (private.can_edit_job(job_id));
+drop policy if exists "job_payments: delete" on public.job_payments;
+create policy "job_payments: delete" on public.job_payments
+  for delete to authenticated using (private.can_edit_job(job_id));
+
+drop policy if exists "job_change_orders: read" on public.job_change_orders;
+create policy "job_change_orders: read" on public.job_change_orders
+  for select to authenticated using (private.can_view_job(job_id));
+drop policy if exists "job_change_orders: add" on public.job_change_orders;
+create policy "job_change_orders: add" on public.job_change_orders
+  for insert to authenticated
+  with check (private.can_edit_job(job_id) and created_by = (select auth.uid()));
+drop policy if exists "job_change_orders: edit" on public.job_change_orders;
+create policy "job_change_orders: edit" on public.job_change_orders
+  for update to authenticated
+  using (private.can_edit_job(job_id)) with check (private.can_edit_job(job_id));
+drop policy if exists "job_change_orders: delete" on public.job_change_orders;
+create policy "job_change_orders: delete" on public.job_change_orders
+  for delete to authenticated using (private.can_edit_job(job_id));
