@@ -38,6 +38,8 @@ export default function JobBar({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
+  const [address, setAddress] = useState("");
+  const [description, setDescription] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<MemberRole>("editor");
   const [warrantyCount, setWarrantyCount] = useState<number | null>(null);
@@ -63,8 +65,10 @@ export default function JobBar({
     e.preventDefault();
     if (!title.trim()) return setError("Give the job a name, like “Replace water heater”.");
     run(async () => {
-      const id = await createJob(title);
+      const id = await createJob(title, { address, description });
       setTitle("");
+      setAddress("");
+      setDescription("");
       setPanel("none");
       await onChange(id);
     }, "Could not create that job. Try again.");
@@ -174,16 +178,31 @@ export default function JobBar({
       )}
 
       {panel === "new" && (
-        <form onSubmit={handleCreate} className="mt-4 flex flex-wrap gap-3 border-t border-walnut pt-4">
+        <form onSubmit={handleCreate} className="mt-4 flex flex-col gap-3 border-t border-walnut pt-4">
           <input
             autoFocus
             aria-label="Job name"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. Replace water heater"
-            className={`${inputClass} min-w-0 flex-1`}
+            className={inputClass}
           />
-          <button type="submit" disabled={busy} className={primaryPill}>
+          <input
+            aria-label="Address (optional)"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Address (optional)"
+            className={inputClass}
+          />
+          <textarea
+            aria-label="What's the problem? (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="What's the problem? (optional)"
+            rows={2}
+            className={`${inputClass} resize-y`}
+          />
+          <button type="submit" disabled={busy} className={`${primaryPill} self-start`}>
             {busy ? "Creating…" : "Create job"}
           </button>
         </form>
@@ -249,7 +268,7 @@ export default function JobBar({
       {panel === "delete" && selected && (
         <div className="mt-4 border-t border-walnut pt-4 text-sm">
           <p className="text-beige">
-            Delete &ldquo;{selected.title}&rdquo;? Its quotes, files and proof log will be deleted. This
+            Delete &ldquo;{selected.title}&rdquo;? Its quotes, files, payments, change orders and proof log will be deleted. This
             can&apos;t be undone.
           </p>
           {warrantyCount === null ? (
