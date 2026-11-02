@@ -32,6 +32,9 @@ The home page, Quote Checker (with job management: create, status, share, delete
   `GEMINI_API_KEY` in `.env.local` (get a key at aistudio.google.com/apikey)
   to use it instead of Claude. Optional `GEMINI_MODEL` picks the model
   (defaults to `gemini-3.5-flash`).
+  The "Ask Gemini" chat button (`src/components/GeminiButton.tsx`, on the home page and
+  Quote Checker) calls `src/app/api/ask-gemini` and only needs `GEMINI_API_KEY`. Chats
+  are not saved.
 - Supabase (`@supabase/supabase-js`, `@supabase/ssr`) — Postgres database, email/password
   sign-in, and file storage. Needs `NEXT_PUBLIC_SUPABASE_URL` and
   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `.env.local` (both safe to expose: the
@@ -76,7 +79,7 @@ There is no test runner configured yet.
 
 - `src/app/` — App Router routes. `layout.tsx` is the root layout (fonts, metadata), `page.tsx` is the home page, and each section has its own folder (e.g. `src/app/quote-checker/page.tsx`).
 - `src/lib/sections.ts` — the single list of app sections (title, route, icon). The home page and placeholders read from it, so add or rename sections here.
-- `src/components/` — shared components (`SectionIcon`, `ComingSoon`, `AuthStatus`) and each section's UI.
+- `src/components/` — shared components (`SectionIcon`, `ComingSoon`, `AuthStatus`, `GeminiButton`) and each section's UI.
 - Jobs: `src/lib/job-types.ts`, `src/lib/job-storage.ts`, and `src/components/JobBar.tsx` (the job picker at the top of the Quote Checker).
 - Quote Checker: `src/lib/quote-types.ts`, `src/lib/quote-storage.ts`, and `src/components/Quote*.tsx`.
 - Warranty Vault: `src/lib/warranty-types.ts` (the warranty shape, end-date and status rules — "ending soon" is within `ENDING_SOON_DAYS` = 60), `src/lib/warranty-storage.ts` (saves to the `warranties` table and the `homi-files` bucket), and `src/components/Warranty*.tsx`.

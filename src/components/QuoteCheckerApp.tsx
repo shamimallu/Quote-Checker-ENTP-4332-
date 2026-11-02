@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import GeminiButton from "@/components/GeminiButton";
 import JobBar from "@/components/JobBar";
 import QuoteUploadForm from "@/components/QuoteUploadForm";
 import QuoteList from "@/components/QuoteList";
@@ -207,6 +208,8 @@ export default function QuoteCheckerApp() {
           )}
         </>
       )}
+
+      <GeminiButton quotes={visibleQuotes} comparison={comparison} />
     </main>
   );
 }

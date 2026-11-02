@@ -36,3 +36,26 @@ export async function generateGeminiJson(
   });
   return response.text ? JSON.parse(response.text) : null;
 }
+
+export type GeminiChatMessage = {
+  role: "user" | "model";
+  text: string;
+};
+
+// Asks Gemini for a plain text reply to a conversation. Returns null if it gave no answer.
+export async function generateGeminiReply(
+  client: GoogleGenAI,
+  systemInstruction: string,
+  messages: GeminiChatMessage[]
+): Promise<string | null> {
+  const response = await client.models.generateContent({
+    model: GEMINI_MODEL,
+    contents: messages.map((m) => ({ role: m.role, parts: [{ text: m.text }] })),
+    config: {
+      systemInstruction,
+      // Give up rather than leave the person waiting if Gemini is overloaded.
+      httpOptions: { timeout: 60_000 },
+    },
+  });
+  return response.text ?? null;
+}
