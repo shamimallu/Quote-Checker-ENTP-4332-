@@ -13,28 +13,47 @@ const fromRole = (role: MessageRow["role"]) => (role === "assistant" ? "model" :
 
 export type SavedChat = { id: string; messages: GeminiChatMessage[] };
 
+export type ChatSummary = { id: string; title: string; createdAt: string };
+
+// The person's conversations, newest first.
+export async function listChats(): Promise<ChatSummary[]> {
+  const { data, error } = await createClient()
+    .from("muse_conversations")
+    .select("id, title, created_at")
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  return data.map((c) => ({ id: c.id, title: c.title, createdAt: c.created_at }));
+}
+
+// One conversation's messages, oldest first.
+export async function loadChat(id: string): Promise<SavedChat> {
+  const { data: rows, error } = await createClient()
+    .from("muse_messages")
+    .select("role, content")
+    .eq("conversation_id", id)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return { id, messages: (rows as MessageRow[]).map((r) => ({ role: fromRole(r.role), text: r.content })) };
+}
+
 // The conversation started most recently, or null if there isn't one yet.
 export async function loadLatestChat(): Promise<SavedChat | null> {
-  const supabase = createClient();
-  const { data: conversation, error } = await supabase
+  const { data: conversation, error } = await createClient()
     .from("muse_conversations")
     .select("id")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   if (error) throw error;
-  if (!conversation) return null;
+  return conversation ? loadChat(conversation.id) : null;
+}
 
-  const { data: rows, error: messagesError } = await supabase
-    .from("muse_messages")
-    .select("role, content")
-    .eq("conversation_id", conversation.id)
-    .order("created_at", { ascending: true });
-  if (messagesError) throw messagesError;
-  return {
-    id: conversation.id,
-    messages: (rows as MessageRow[]).map((r) => ({ role: fromRole(r.role), text: r.content })),
-  };
+// Deletes a conversation; its messages go with it.
+export async function deleteChat(id: string): Promise<void> {
+  const { data, error } = await createClient().from("muse_conversations").delete().eq("id", id).select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error("Could not delete that chat.");
 }
 
 // Starts a conversation, named after its first question.

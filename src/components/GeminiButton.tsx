@@ -4,12 +4,26 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { createChat, loadLatestChat, saveExchange } from "@/lib/chat-storage";
+import {
+  createChat,
+  deleteChat,
+  listChats,
+  loadChat,
+  loadLatestChat,
+  saveExchange,
+  type ChatSummary,
+} from "@/lib/chat-storage";
 import type { GeminiChatMessage } from "@/lib/gemini";
 import type { ComparisonResult, ExtractedQuote } from "@/lib/quote-types";
 
 const MAX_MESSAGES = 20;
 const MAX_MESSAGE_CHARS = 2000;
+
+function formatChatDate(iso: string) {
+  const date = new Date(iso);
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }) });
+}
 
 function SparkleIcon({ className }: { className: string }) {
   return (
@@ -54,6 +68,11 @@ export default function GeminiButton({
   const [chatId, setChatId] = useState<string | null>(null); // the saved conversation, once there is one
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadingChat, setLoadingChat] = useState(false);
+  // The list of past conversations, shown in place of the chat.
+  const [showHistory, setShowHistory] = useState(false);
+  const [chats, setChats] = useState<ChatSummary[] | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -71,6 +90,10 @@ export default function GeminiButton({
         setChatId(null);
         setHistoryLoaded(false);
         setSaveError(null);
+        setLoadingChat(false);
+        setShowHistory(false);
+        setChats(null);
+        setHistoryError(null);
         setSignedIn(false);
       } else if (session) {
         setSignedIn(true);
@@ -118,13 +141,69 @@ export default function GeminiButton({
     setError(null);
     setSaveError(null);
     setSending(false);
+    setLoadingChat(false);
+    setShowHistory(false);
     inputRef.current?.focus();
+  }
+
+  function openHistory() {
+    setShowHistory(true);
+    setChats(null);
+    setHistoryError(null);
+    listChats()
+      .then(setChats)
+      .catch(() => {
+        setChats([]);
+        setHistoryError("Couldn't load your chats. Try again.");
+      });
+  }
+
+  function openChat(id: string) {
+    conversationRef.current++;
+    const conversation = conversationRef.current;
+    setShowHistory(false);
+    setMessages([]);
+    setChatId(id);
+    setDraft("");
+    setError(null);
+    setSaveError(null);
+    setSending(false);
+    setLoadingChat(true);
+    loadChat(id)
+      .then((chat) => {
+        if (conversation !== conversationRef.current) return;
+        setMessages(chat.messages);
+        setLoadingChat(false);
+      })
+      .catch(() => {
+        if (conversation !== conversationRef.current) return;
+        setChatId(null);
+        setLoadingChat(false);
+        setError("Couldn't open that chat. Try again from History.");
+      });
+  }
+
+  async function removeChat(chat: ChatSummary) {
+    if (!window.confirm(`Delete \u201c${chat.title}\u201d? This can't be undone.`)) return;
+    try {
+      await deleteChat(chat.id);
+    } catch {
+      setHistoryError("Couldn't delete that chat. Try again.");
+      return;
+    }
+    setChats((list) => (list ?? []).filter((c) => c.id !== chat.id));
+    if (chat.id === chatId) {
+      // The open conversation is gone, so start fresh but stay on the list.
+      conversationRef.current++;
+      setMessages([]);
+      setChatId(null);
+    }
   }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const text = draft.trim();
-    if (!text || sending || full || !historyLoaded) return;
+    if (!text || sending || full || !historyLoaded || loadingChat) return;
 
     const conversation = conversationRef.current;
     const next: GeminiChatMessage[] = [...messages, { role: "user", text }];
@@ -203,7 +282,16 @@ export default function GeminiButton({
           Ask Gemini
         </h2>
         <div className="flex items-center gap-1">
-          {signedIn && messages.length > 0 && (
+          {signedIn && (
+            <button
+              type="button"
+              onClick={() => (showHistory ? setShowHistory(false) : openHistory())}
+              className="rounded-full border border-walnut px-3 py-1 text-xs text-beige transition-colors hover:border-caramel hover:text-caramel"
+            >
+              {showHistory ? "Back to chat" : "History"}
+            </button>
+          )}
+          {signedIn && (messages.length > 0 || showHistory) && (
             <button
               type="button"
               onClick={startNewChat}
@@ -223,46 +311,87 @@ export default function GeminiButton({
         </div>
       </header>
 
-      <div className="flex min-h-40 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3" aria-live="polite">
-        {signedIn === false && (
-          <p className="text-sm text-sand">
-            Sign in to ask Gemini about your quotes.{" "}
-            <Link
-              href={`/login?next=${encodeURIComponent(pathname)}`}
-              className="text-caramel underline hover:text-beige"
+      {showHistory ? (
+        <div className="flex min-h-40 flex-1 flex-col gap-2 overflow-y-auto px-4 py-3">
+          <h3 className="text-sm text-sand">Your chats</h3>
+          {chats === null && <p className="text-sm text-sand">Loading…</p>}
+          {chats?.length === 0 && !historyError && (
+            <p className="text-sm text-sand">No saved chats yet. Ask Gemini something to start one.</p>
+          )}
+          {historyError && <p className="text-sm text-red-400">{historyError}</p>}
+          <ul className="flex flex-col gap-2">
+            {chats?.map((chat) => (
+              <li
+                key={chat.id}
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+                  chat.id === chatId ? "border-caramel/60" : "border-walnut"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => openChat(chat.id)}
+                  className="min-w-0 flex-1 text-left focus-visible:outline-2 focus-visible:outline-caramel"
+                >
+                  <span className="block truncate text-sm text-beige">{chat.title}</span>
+                  <span className="block text-xs text-sand">
+                    {formatChatDate(chat.createdAt)}
+                    {chat.id === chatId ? " · open now" : ""}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeChat(chat)}
+                  aria-label={`Delete chat: ${chat.title}`}
+                  className="shrink-0 rounded-full px-2 py-1 text-xs text-sand transition-colors hover:text-red-400"
+                >
+                  Delete
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <div className="flex min-h-40 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3" aria-live="polite">
+          {signedIn === false && (
+            <p className="text-sm text-sand">
+              Sign in to ask Gemini about your quotes.{" "}
+              <Link
+                href={`/login?next=${encodeURIComponent(pathname)}`}
+                className="text-caramel underline hover:text-beige"
+              >
+                Sign in
+              </Link>
+            </p>
+          )}
+          {signedIn !== false && messages.length === 0 && !loadingChat && (
+            <p className="text-sm text-sand">
+              {quotes?.length
+                ? "Ask about the quotes on this page, like “Is this deposit too high?”"
+                : "Ask about a repair quote, like “What should a roof quote include?”"}
+            </p>
+          )}
+          {messages.map((message, index) => (
+            <p
+              key={index}
+              className={
+                message.role === "user"
+                  ? "max-w-[85%] self-end rounded-2xl bg-caramel px-3 py-2 text-sm whitespace-pre-wrap text-espresso"
+                  : "max-w-[85%] self-start rounded-2xl bg-walnut px-3 py-2 text-sm whitespace-pre-wrap text-beige"
+              }
             >
-              Sign in
-            </Link>
-          </p>
-        )}
-        {signedIn !== false && messages.length === 0 && (
-          <p className="text-sm text-sand">
-            {quotes?.length
-              ? "Ask about the quotes on this page, like “Is this deposit too high?”"
-              : "Ask about a repair quote, like “What should a roof quote include?”"}
-          </p>
-        )}
-        {messages.map((message, index) => (
-          <p
-            key={index}
-            className={
-              message.role === "user"
-                ? "max-w-[85%] self-end rounded-2xl bg-caramel px-3 py-2 text-sm whitespace-pre-wrap text-espresso"
-                : "max-w-[85%] self-start rounded-2xl bg-walnut px-3 py-2 text-sm whitespace-pre-wrap text-beige"
-            }
-          >
-            {message.text}
-          </p>
-        ))}
-        {sending && <p className="self-start text-sm text-sand">Gemini is thinking…</p>}
-        {error && <p className="text-sm text-red-400">{error}</p>}
-        {signedIn && !historyLoaded && <p className="text-sm text-sand">Loading your chat…</p>}
-        {saveError && <p className="text-sm text-sand">{saveError}</p>}
-        {full && <p className="text-sm text-sand">This chat is full. Start a new chat to keep going.</p>}
-        <div ref={endRef} />
-      </div>
+              {message.text}
+            </p>
+          ))}
+          {sending && <p className="self-start text-sm text-sand">Gemini is thinking…</p>}
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          {signedIn && (!historyLoaded || loadingChat) && <p className="text-sm text-sand">Loading your chat…</p>}
+          {saveError && <p className="text-sm text-sand">{saveError}</p>}
+          {full && <p className="text-sm text-sand">This chat is full. Start a new chat to keep going.</p>}
+          <div ref={endRef} />
+        </div>
+      )}
 
-      {signedIn !== false && (
+      {signedIn !== false && !showHistory && (
         <form onSubmit={handleSubmit} className="border-t border-walnut p-3">
           <div className="flex items-end gap-2">
             <textarea
@@ -280,7 +409,7 @@ export default function GeminiButton({
             />
             <button
               type="submit"
-              disabled={sending || full || !draft.trim() || !historyLoaded}
+              disabled={sending || full || !draft.trim() || !historyLoaded || loadingChat}
               className="rounded-full bg-caramel px-4 py-2 text-sm text-espresso transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               Send

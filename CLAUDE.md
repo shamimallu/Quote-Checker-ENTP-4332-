@@ -35,8 +35,10 @@ The home page, Quote Checker (with job management: create, status, share, delete
   The "Ask Gemini" chat button (`src/components/GeminiButton.tsx`, on the home page and
   Quote Checker) calls `src/app/api/ask-gemini` and only needs `GEMINI_API_KEY`. Chats
   are saved per person in `muse_conversations` / `muse_messages` (`src/lib/chat-storage.ts`);
-  the newest conversation reopens on sign-in, "New chat" starts another, and signing out
-  clears the panel.
+  the newest conversation reopens on sign-in, "New chat" starts another, "History" lists
+  past conversations to reopen or delete, and signing out clears the panel. Quotes and
+  chats go to Gemini's free tier; the group accepted that while it's a class project with
+  no real users — revisit before real people use it.
   Gemini's free tier allows about 5 requests per minute per model.
 - Supabase (`@supabase/supabase-js`, `@supabase/ssr`) — Postgres database, email/password
   sign-in, and file storage. Needs `NEXT_PUBLIC_SUPABASE_URL` and
