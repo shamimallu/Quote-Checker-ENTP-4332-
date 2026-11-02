@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAnthropicClient } from "@/lib/anthropic";
-import { generateGeminiJson, getGeminiClient, isGeminiSelected } from "@/lib/gemini";
+import { geminiErrorMessage, generateGeminiJson, getGeminiClient, isGeminiSelected } from "@/lib/gemini";
 import type { ExtractedQuote } from "@/lib/quote-types";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB
@@ -172,7 +172,11 @@ async function extractWithGemini(file: File, base64Data: string) {
     };
 
     return NextResponse.json(quote);
-  } catch {
-    return NextResponse.json({ error: "Something went wrong reading that quote." }, { status: 502 });
+  } catch (error) {
+    console.error("Gemini could not read a quote:", error);
+    return NextResponse.json(
+      { error: geminiErrorMessage(error, "Something went wrong reading that quote.") },
+      { status: 502 }
+    );
   }
 }

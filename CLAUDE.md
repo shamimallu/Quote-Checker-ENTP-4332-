@@ -35,6 +35,7 @@ The home page, Quote Checker (with job management: create, status, share, delete
   The "Ask Gemini" chat button (`src/components/GeminiButton.tsx`, on the home page and
   Quote Checker) calls `src/app/api/ask-gemini` and only needs `GEMINI_API_KEY`. Chats
   are not saved.
+  Gemini's free tier allows about 5 requests per minute per model.
 - Supabase (`@supabase/supabase-js`, `@supabase/ssr`) — Postgres database, email/password
   sign-in, and file storage. Needs `NEXT_PUBLIC_SUPABASE_URL` and
   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `.env.local` (both safe to expose: the

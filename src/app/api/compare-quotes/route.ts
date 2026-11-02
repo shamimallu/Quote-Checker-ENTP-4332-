@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAnthropicClient } from "@/lib/anthropic";
-import { generateGeminiJson, getGeminiClient, isGeminiSelected } from "@/lib/gemini";
+import { geminiErrorMessage, generateGeminiJson, getGeminiClient, isGeminiSelected } from "@/lib/gemini";
 import costReference from "@/lib/cost-reference.json";
 import type { ComparisonResult, ExtractedQuote } from "@/lib/quote-types";
 
@@ -148,7 +148,11 @@ async function compareWithGemini(quotes: ExtractedQuote[]) {
     }
 
     return NextResponse.json(result);
-  } catch {
-    return NextResponse.json({ error: "Something went wrong comparing those quotes." }, { status: 502 });
+  } catch (error) {
+    console.error("Gemini could not compare quotes:", error);
+    return NextResponse.json(
+      { error: geminiErrorMessage(error, "Something went wrong comparing those quotes.") },
+      { status: 502 }
+    );
   }
 }

@@ -102,17 +102,15 @@ export default function QuoteCheckerApp() {
     setUploading(true);
     setUploadError(null);
     try {
-      const placeholder: ExtractedQuote = {
-        id: crypto.randomUUID(),
-        fileName: file.name,
-        filePath: null,
-        contractorName: "Pending analysis",
-        lineItems: [],
-        depositPercent: null,
-        depositAmount: null,
-        warrantyTerms: "AI analysis coming soon — this file is saved, but not read yet.",
-      };
-      const saved = await saveQuote(job.id, placeholder, file);
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch("/api/extract-quote", { method: "POST", body });
+      const data = await res.json();
+      if (!res.ok) {
+        setUploadError(data.error ?? "Could not read that quote.");
+        return;
+      }
+      const saved = await saveQuote(job.id, { ...(data as Omit<ExtractedQuote, "filePath">), filePath: null }, file);
       setQuotes((list) => [...list, saved]);
       setComparison(null);
     } catch {

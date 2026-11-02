@@ -3,6 +3,9 @@ import { GoogleGenAI, type Part } from "@google/genai";
 // Set GEMINI_MODEL in .env.local to use a different model.
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
 
+// Gemini is often briefly overloaded (503), so try again before giving up.
+const RETRY_WHEN_OVERLOADED = { attempts: 4, httpStatusCodes: [503] };
+
 // Gemini is opt-in: set AI_PROVIDER=gemini in .env.local. Otherwise the
 // Quote Checker keeps using Claude.
 export function isGeminiSelected() {
@@ -32,9 +35,19 @@ export async function generateGeminiJson(
     config: {
       responseMimeType: "application/json",
       responseJsonSchema: schema,
+      // Give up rather than leave the person waiting if Gemini is overloaded.
+      httpOptions: { timeout: 120_000, retryOptions: RETRY_WHEN_OVERLOADED },
     },
   });
   return response.text ? JSON.parse(response.text) : null;
+}
+
+// What to tell the person when a Gemini call fails. The free tier allows only a
+// few requests per minute, and that limit is worth explaining.
+export function geminiErrorMessage(error: unknown, fallback: string) {
+  return (error as { status?: number } | null)?.status === 429
+    ? "Gemini's limit for this minute has been reached. Wait a minute and try again."
+    : fallback;
 }
 
 export type GeminiChatMessage = {
@@ -54,7 +67,7 @@ export async function generateGeminiReply(
     config: {
       systemInstruction,
       // Give up rather than leave the person waiting if Gemini is overloaded.
-      httpOptions: { timeout: 60_000 },
+      httpOptions: { timeout: 60_000, retryOptions: RETRY_WHEN_OVERLOADED },
     },
   });
   return response.text ?? null;
