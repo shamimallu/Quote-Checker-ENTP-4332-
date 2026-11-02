@@ -1,15 +1,17 @@
 import { createClient } from "@/lib/supabase/client";
+import { currentUserId } from "@/lib/supabase/current-user";
+import { getFileUrl, removeFiles, removeFolder, safeFileName, uploadFile } from "@/lib/file-storage";
 import type { Warranty, WarrantyType } from "@/lib/warranty-types";
 
 // Client-only. Warranties live in the Supabase `warranties` table and their PDFs/photos in
-// the private `warranty-documents` bucket. Row level security limits every call to the
-// signed-in person's own data.
+// the `homi-files` bucket under warranties/<warranty id>/. Row level security lets the person
+// who added a warranty, and everyone on its linked job, see it.
 const TABLE = "warranties";
-const BUCKET = "warranty-documents";
 
 type WarrantyRow = {
   id: string;
-  item: string;
+  job_id: string | null;
+  product_or_service: string;
   warranty_type: WarrantyType;
   provider: string;
   phone: string;
@@ -28,7 +30,8 @@ type WarrantyRow = {
 function fromRow(row: WarrantyRow): Warranty {
   return {
     id: row.id,
-    item: row.item,
+    jobId: row.job_id,
+    item: row.product_or_service,
     warrantyType: row.warranty_type,
     provider: row.provider,
     phone: row.phone,
@@ -45,12 +48,6 @@ function fromRow(row: WarrantyRow): Warranty {
   };
 }
 
-async function currentUserId(): Promise<string> {
-  const { data, error } = await createClient().auth.getUser();
-  if (error || !data.user) throw new Error("Please sign in first.");
-  return data.user.id;
-}
-
 export async function loadWarranties(): Promise<Warranty[]> {
   const { data, error } = await createClient().from(TABLE).select("*");
   if (error) throw error;
@@ -60,23 +57,11 @@ export async function loadWarranties(): Promise<Warranty[]> {
 export async function saveWarranty(warranty: Warranty): Promise<Warranty> {
   const supabase = createClient();
   const userId = await currentUserId();
-  let document = warranty.document;
+  const { data: existing } = await supabase.from(TABLE).select("id").eq("id", warranty.id).maybeSingle();
 
-  // A newly chosen file has a blob and no path yet: upload it first.
-  if (document?.blob) {
-    const safeName = document.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const path = `${userId}/${warranty.id}/${Date.now()}-${safeName}`;
-    const { error } = await supabase.storage
-      .from(BUCKET)
-      .upload(path, document.blob, { contentType: document.type || undefined });
-    if (error) throw error;
-    document = { name: document.name, type: document.type, path };
-  }
-
-  const { error } = await supabase.from(TABLE).upsert({
-    id: warranty.id,
-    owner: userId,
-    item: warranty.item,
+  const fields = {
+    job_id: warranty.jobId,
+    product_or_service: warranty.item,
     warranty_type: warranty.warrantyType,
     provider: warranty.provider,
     phone: warranty.phone,
@@ -86,19 +71,37 @@ export async function saveWarranty(warranty: Warranty): Promise<Warranty> {
     length_months: warranty.lengthMonths,
     covered: warranty.covered,
     not_covered: warranty.notCovered,
-    document_name: document?.name ?? null,
-    document_type: document?.type ?? null,
-    document_path: document?.path ?? null,
-  });
+  };
+
+  // Save the warranty first: the storage rules only allow uploads for a warranty that exists.
+  const { error } = existing
+    ? await supabase.from(TABLE).update(fields).eq("id", warranty.id)
+    : await supabase.from(TABLE).insert({ id: warranty.id, owner: userId, ...fields });
   if (error) throw error;
 
+  // A newly chosen file has a blob and no path yet: upload it.
+  let document = warranty.document;
+  if (document?.blob) {
+    const path = `warranties/${warranty.id}/${Date.now()}-${safeFileName(document.name)}`;
+    await uploadFile(path, document.blob, document.type);
+    document = { name: document.name, type: document.type, path };
+  }
+
+  const { error: docError } = await supabase
+    .from(TABLE)
+    .update({
+      document_name: document?.name ?? null,
+      document_type: document?.type ?? null,
+      document_path: document?.path ?? null,
+    })
+    .eq("id", warranty.id);
+  if (docError) throw docError;
+
   // Remove files from earlier versions of this warranty (replaced or removed documents).
-  const folder = `${userId}/${warranty.id}`;
-  const { data: files } = await supabase.storage.from(BUCKET).list(folder);
-  const stale = (files ?? [])
-    .map((f) => `${folder}/${f.name}`)
-    .filter((p) => p !== document?.path);
-  if (stale.length > 0) await supabase.storage.from(BUCKET).remove(stale);
+  const folder = `warranties/${warranty.id}`;
+  const { data: files } = await supabase.storage.from("homi-files").list(folder);
+  const stale = (files ?? []).map((f) => `${folder}/${f.name}`).filter((p) => p !== document?.path);
+  await removeFiles(stale).catch(() => {}); // leftover files are harmless; don't fail the save
 
   return { ...warranty, document };
 }
@@ -106,18 +109,37 @@ export async function saveWarranty(warranty: Warranty): Promise<Warranty> {
 export async function deleteWarranty(id: string): Promise<void> {
   const supabase = createClient();
   const userId = await currentUserId();
-  const folder = `${userId}/${id}`;
-  const { data: files } = await supabase.storage.from(BUCKET).list(folder);
-  if (files && files.length > 0) {
-    await supabase.storage.from(BUCKET).remove(files.map((f) => `${folder}/${f.name}`));
+
+  // Check first: the files must be removed while the warranty still exists (the storage rules
+  // look it up), and they shouldn't be removed if the row delete would then be refused.
+  const { data: row, error: readError } = await supabase
+    .from(TABLE)
+    .select("owner, jobs(owner)")
+    .eq("id", id)
+    .single<{ owner: string; jobs: { owner: string } | null }>();
+  if (readError) throw readError;
+  if (row.owner !== userId && row.jobs?.owner !== userId) {
+    throw new Error("Only the person who added this warranty, or the job's owner, can delete it.");
   }
+
+  await removeFolder(`warranties/${id}`);
   const { error } = await supabase.from(TABLE).delete().eq("id", id);
   if (error) throw error;
 }
 
-// A short-lived link to a stored document (valid for 60 seconds).
-export async function getDocumentUrl(path: string): Promise<string> {
-  const { data, error } = await createClient().storage.from(BUCKET).createSignedUrl(path, 60);
-  if (error || !data) throw error ?? new Error("Could not open that document.");
-  return data.signedUrl;
+export async function countWarrantiesForJob(jobId: string): Promise<number> {
+  const { count, error } = await createClient()
+    .from(TABLE)
+    .select("id", { count: "exact", head: true })
+    .eq("job_id", jobId);
+  if (error) throw error;
+  return count ?? 0;
 }
+
+export async function deleteWarrantiesForJob(jobId: string): Promise<void> {
+  const { data, error } = await createClient().from(TABLE).select("id").eq("job_id", jobId);
+  if (error) throw error;
+  for (const { id } of data ?? []) await deleteWarranty(id);
+}
+
+export const getDocumentUrl = getFileUrl;

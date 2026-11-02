@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { Job } from "@/lib/job-types";
 import {
   WARRANTY_TYPE_LABELS,
   formatDate,
@@ -19,6 +20,7 @@ const labelClass = "mb-1 block text-sm text-sand";
 function emptyWarranty(): Warranty {
   return {
     id: crypto.randomUUID(),
+    jobId: null,
     item: "",
     warrantyType: "manufacturer",
     provider: "",
@@ -36,10 +38,12 @@ function emptyWarranty(): Warranty {
 
 export default function WarrantyForm({
   initial,
+  jobs,
   onSave,
   onCancel,
 }: {
   initial?: Warranty;
+  jobs: Job[]; // jobs this person can add warranties to
   onSave: (warranty: Warranty) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -87,6 +91,24 @@ export default function WarrantyForm({
         <label htmlFor="item" className={labelClass}>What it covers *</label>
         <input id="item" className={inputClass} value={form.item} placeholder="e.g. Water heater, Roof replacement"
           onChange={(e) => set("item", e.target.value)} />
+      </div>
+
+      <div>
+        <label htmlFor="job" className={labelClass}>Job (optional)</label>
+        <select id="job" className={inputClass} value={form.jobId ?? ""}
+          onChange={(e) => set("jobId", e.target.value || null)}>
+          <option value="">Not linked to a job</option>
+          {jobs.map((job) => (
+            <option key={job.id} value={job.id}>{job.title}</option>
+          ))}
+          {/* keep a link to a job this person can't edit, so saving doesn't drop it */}
+          {form.jobId && !jobs.some((j) => j.id === form.jobId) && (
+            <option value={form.jobId}>Current job</option>
+          )}
+        </select>
+        <p className="mt-1 text-xs text-sand">
+          Everyone the job is shared with can see this warranty. If the job is deleted, you choose whether to keep it.
+        </p>
       </div>
 
       <div>
