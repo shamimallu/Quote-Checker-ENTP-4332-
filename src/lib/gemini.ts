@@ -64,7 +64,8 @@ export function geminiErrorMessage(error: unknown, fallback: string) {
     case "minute-limit":
       return "Gemini's limit for this minute has been reached. Wait a minute and try again.";
     case "daily-limit":
-      return "Gemini's free daily limit has been used up. It resets at midnight Pacific time, so try again tomorrow.";
+      // Google resets daily quotas at midnight Pacific, which is always 2 AM Central (our team is in Texas).
+      return "Gemini's free daily limit has been used up. It resets at 2 AM Central time, so try again after that.";
     case "no-free-quota":
       return "Gemini isn't available on this app's free plan right now. Please try again later.";
     case "busy":
