@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     messages[messages.length - 1].role !== "user"
   ) {
     return NextResponse.json(
-      { error: "That conversation is too long. Refresh the page to start a new one." },
+      { error: "That conversation is too long. Start a new chat to keep going." },
       { status: 400 }
     );
   }

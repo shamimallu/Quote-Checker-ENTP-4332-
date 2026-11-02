@@ -34,7 +34,11 @@ The home page, Quote Checker (with job management: create, status, share, delete
   (defaults to `gemini-3.5-flash`).
   The "Ask Gemini" chat button (`src/components/GeminiButton.tsx`, on the home page and
   Quote Checker) calls `src/app/api/ask-gemini` and only needs `GEMINI_API_KEY`. Chats
-  are not saved.
+  are saved per person in `muse_conversations` / `muse_messages` (`src/lib/chat-storage.ts`);
+  the newest conversation reopens on sign-in, "New chat" starts another, "History" lists
+  past conversations to reopen or delete, and signing out clears the panel. Quotes and
+  chats go to Gemini's free tier; the group accepted that while it's a class project with
+  no real users — revisit before real people use it.
   Gemini's free tier allows about 5 requests per minute per model.
 - Supabase (`@supabase/supabase-js`, `@supabase/ssr`) — Postgres database, email/password
   sign-in, and file storage. Needs `NEXT_PUBLIC_SUPABASE_URL` and
@@ -50,7 +54,7 @@ The home page, Quote Checker (with job management: create, status, share, delete
     progress, done). A job has `quotes` (with the Quote Checker's comparison saved in
     `analysis`), `job_files`, `proof_log_entries`, and `warranties`. `job_members`
     shares a job with another account as an editor or viewer. `muse_conversations` /
-    `muse_messages` are private to each person. `profiles` is created on sign-up.
+    `muse_messages` hold the Ask Gemini chat history, private to each person. `profiles` is created on sign-up.
   - Delete rules: deleting a job deletes its quotes, files and proof log, but only
     unlinks its warranties (`job_id` becomes null); the app asks whether to keep them.
     Deleting an account deletes everything that person owns. Uploaded files are not
