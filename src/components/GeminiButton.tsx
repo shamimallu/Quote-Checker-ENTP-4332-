@@ -47,11 +47,28 @@ export default function GeminiButton({
   const pathname = usePathname();
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Bumped on sign-out so a reply that arrives afterwards isn't shown.
+  const conversationRef = useRef(0);
 
   useEffect(() => {
-    createClient()
-      .auth.getUser()
-      .then(({ data }) => setSignedIn(Boolean(data.user)));
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => setSignedIn(Boolean(data.user)));
+
+    // Signing out (here or in another tab) clears the chat, so the next person at this
+    // computer can't read it.
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        conversationRef.current++;
+        setMessages([]);
+        setDraft("");
+        setError(null);
+        setSending(false);
+        setSignedIn(false);
+      } else if (session) {
+        setSignedIn(true);
+      }
+    });
+    return () => data.subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -69,6 +86,7 @@ export default function GeminiButton({
     const text = draft.trim();
     if (!text || sending || full) return;
 
+    const conversation = conversationRef.current;
     const next: GeminiChatMessage[] = [...messages, { role: "user", text }];
     setMessages(next);
     setDraft("");
@@ -81,15 +99,17 @@ export default function GeminiButton({
         body: JSON.stringify({ messages: next, quotes, comparison }),
       });
       const data = await res.json();
+      if (conversation !== conversationRef.current) return; // signed out while waiting
       if (!res.ok) throw new Error(data.error ?? "Could not reach Gemini.");
       setMessages([...next, { role: "model", text: data.reply }]);
     } catch (e) {
+      if (conversation !== conversationRef.current) return;
       // Put the question back so it can be sent again.
       setMessages(messages);
       setDraft(text);
       setError(e instanceof Error && e.message ? e.message : "Could not reach Gemini.");
     } finally {
-      setSending(false);
+      if (conversation === conversationRef.current) setSending(false);
     }
   }
 
