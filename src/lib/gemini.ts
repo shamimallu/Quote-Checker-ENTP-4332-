@@ -42,12 +42,44 @@ export async function generateGeminiJson(
   return response.text ? JSON.parse(response.text) : null;
 }
 
-// What to tell the person when a Gemini call fails. The free tier allows only a
-// few requests per minute, and that limit is worth explaining.
+// Why a Gemini call failed, worked out from the error Google sends back.
+export type GeminiProblem = "minute-limit" | "daily-limit" | "no-free-quota" | "busy" | "other";
+
+export function getGeminiProblem(error: unknown): GeminiProblem {
+  const status = (error as { status?: number } | null)?.status;
+  // The SDK puts Google's whole JSON error body in the message, including which quota ran out.
+  const details = error instanceof Error ? error.message : String(error);
+  if (status === 429) {
+    if (/limit:\s*0\b|"quotaValue":\s*"0"/.test(details)) return "no-free-quota";
+    if (/PerDay/i.test(details)) return "daily-limit";
+    return "minute-limit";
+  }
+  if (status === 500 || status === 503 || status === 504 || /timed? ?out|abort/i.test(details)) return "busy";
+  return "other";
+}
+
+// What to tell the person when a Gemini call fails.
 export function geminiErrorMessage(error: unknown, fallback: string) {
-  return (error as { status?: number } | null)?.status === 429
-    ? "Gemini's limit for this minute has been reached. Wait a minute and try again."
-    : fallback;
+  switch (getGeminiProblem(error)) {
+    case "minute-limit":
+      return "Gemini's limit for this minute has been reached. Wait a minute and try again.";
+    case "daily-limit":
+      return "Gemini's free daily limit has been used up. It resets at midnight Pacific time, so try again tomorrow.";
+    case "no-free-quota":
+      return "Gemini isn't available on this app's free plan right now. Please try again later.";
+    case "busy":
+      return "Gemini is busy right now. Please try again in a minute.";
+    default:
+      return fallback;
+  }
+}
+
+// A one-line reason for the server log, so whoever runs the app can see what went wrong.
+export function geminiLogReason(error: unknown) {
+  const problem = getGeminiProblem(error);
+  return problem === "no-free-quota"
+    ? `no free-tier quota for model ${GEMINI_MODEL} on this GEMINI_API_KEY (change GEMINI_MODEL or enable billing)`
+    : problem;
 }
 
 export type GeminiChatMessage = {

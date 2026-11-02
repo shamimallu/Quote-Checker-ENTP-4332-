@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
-import { getAnthropicClient } from "@/lib/anthropic";
-import { geminiErrorMessage, generateGeminiJson, getGeminiClient, isGeminiSelected } from "@/lib/gemini";
+import { claudeErrorMessage, getAnthropicClient } from "@/lib/anthropic";
+import {
+  geminiErrorMessage,
+  geminiLogReason,
+  generateGeminiJson,
+  getGeminiClient,
+  isGeminiSelected,
+} from "@/lib/gemini";
 import costReference from "@/lib/cost-reference.json";
 import type { ComparisonResult, ExtractedQuote } from "@/lib/quote-types";
 
@@ -92,7 +98,8 @@ export async function POST(request: Request) {
       model: "claude-sonnet-5-5",
       max_tokens: 2048,
       tools: [COMPARE_TOOL],
-      tool_choice: { type: "tool", name: "record_comparison" },
+      // Claude Sonnet 5.5 rejects forcing a specific tool; the prompt asks for it instead.
+      tool_choice: { type: "auto" },
       messages: [
         {
           role: "user",
@@ -116,8 +123,12 @@ export async function POST(request: Request) {
 
     const result = toolUse.input as ComparisonResult;
     return NextResponse.json(result);
-  } catch {
-    return NextResponse.json({ error: "Something went wrong comparing those quotes." }, { status: 502 });
+  } catch (error) {
+    console.error("Claude could not compare quotes:", error);
+    return NextResponse.json(
+      { error: claudeErrorMessage(error, "Something went wrong comparing those quotes.") },
+      { status: 502 }
+    );
   }
 }
 
@@ -153,7 +164,7 @@ async function compareWithGemini(quotes: ExtractedQuote[]) {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Gemini could not compare quotes:", error);
+    console.error(`Gemini could not compare quotes (${geminiLogReason(error)}):`, error);
     return NextResponse.json(
       { error: geminiErrorMessage(error, "Something went wrong comparing those quotes.") },
       { status: 502 }

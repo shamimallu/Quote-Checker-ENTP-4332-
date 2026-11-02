@@ -31,7 +31,10 @@ The home page, Quote Checker (with job management: create, status, share, delete
   (`src/lib/gemini.ts`). Off by default; set `AI_PROVIDER=gemini` and a
   `GEMINI_API_KEY` in `.env.local` (get a key at aistudio.google.com/apikey)
   to use it instead of Claude. Optional `GEMINI_MODEL` picks the model
-  (defaults to `gemini-3.5-flash`).
+  (defaults to `gemini-3.5-flash`). There is deliberately no automatic fallback to Claude
+  (the group chose not to pay for the Claude API). `getGeminiProblem` in `src/lib/gemini.ts`
+  tells a per-minute limit, the daily limit, a model with no free quota, and "busy" apart from
+  Google's error, so people see which one happened and the server log says the exact reason.
   The "Ask Gemini" chat button (`src/components/GeminiButton.tsx`, on the home page and
   Quote Checker) calls `src/app/api/ask-gemini` and only needs `GEMINI_API_KEY`. Chats
   are saved per person in `muse_conversations` / `muse_messages` (`src/lib/chat-storage.ts`);

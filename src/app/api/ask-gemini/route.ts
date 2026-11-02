@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
-import { geminiErrorMessage, generateGeminiReply, getGeminiClient, type GeminiChatMessage } from "@/lib/gemini";
+import {
+  geminiErrorMessage,
+  geminiLogReason,
+  generateGeminiReply,
+  getGeminiClient,
+  type GeminiChatMessage,
+} from "@/lib/gemini";
 import type { ComparisonResult, ExtractedQuote } from "@/lib/quote-types";
 
 const MAX_MESSAGES = 20;
@@ -76,7 +82,7 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ reply });
   } catch (error) {
-    console.error("Ask Gemini failed:", error);
+    console.error(`Ask Gemini failed (${geminiLogReason(error)}):`, error);
     return NextResponse.json(
       { error: geminiErrorMessage(error, "Gemini is busy or could not be reached. Please try again in a minute.") },
       { status: 502 }

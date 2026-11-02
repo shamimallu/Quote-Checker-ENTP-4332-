@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
-import { getAnthropicClient } from "@/lib/anthropic";
-import { geminiErrorMessage, generateGeminiJson, getGeminiClient, isGeminiSelected } from "@/lib/gemini";
+import { claudeErrorMessage, getAnthropicClient } from "@/lib/anthropic";
+import {
+  geminiErrorMessage,
+  geminiLogReason,
+  generateGeminiJson,
+  getGeminiClient,
+  isGeminiSelected,
+} from "@/lib/gemini";
 import { MAX_QUOTE_FILE_BYTES, MAX_QUOTE_FILE_LABEL, type ExtractedQuote } from "@/lib/quote-types";
 
 const ACCEPTED_TYPES: Record<string, true> = {
@@ -109,7 +115,8 @@ export async function POST(request: Request) {
       model: "claude-sonnet-5-5",
       max_tokens: 2048,
       tools: [EXTRACT_TOOL],
-      tool_choice: { type: "tool", name: "record_quote" },
+      // Claude Sonnet 5.5 rejects forcing a specific tool; the prompt asks for it instead.
+      tool_choice: { type: "auto" },
       messages: [
         {
           role: "user",
@@ -137,8 +144,12 @@ export async function POST(request: Request) {
     };
 
     return NextResponse.json(quote);
-  } catch {
-    return NextResponse.json({ error: "Something went wrong reading that quote." }, { status: 502 });
+  } catch (error) {
+    console.error("Claude could not read a quote:", error);
+    return NextResponse.json(
+      { error: claudeErrorMessage(error, "Something went wrong reading that quote.") },
+      { status: 502 }
+    );
   }
 }
 
@@ -176,7 +187,7 @@ async function extractWithGemini(file: File, base64Data: string) {
 
     return NextResponse.json(quote);
   } catch (error) {
-    console.error("Gemini could not read a quote:", error);
+    console.error(`Gemini could not read a quote (${geminiLogReason(error)}):`, error);
     return NextResponse.json(
       { error: geminiErrorMessage(error, "Something went wrong reading that quote.") },
       { status: 502 }
