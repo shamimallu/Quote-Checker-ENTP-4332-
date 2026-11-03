@@ -1,5 +1,5 @@
-import ComingSoon from "@/components/ComingSoon";
+import ProofLogApp from "@/components/ProofLogApp";
 
 export default function ProofLog() {
-  return <ComingSoon href="/proof-log" />;
+  return <ProofLogApp />;
 }
