@@ -8,14 +8,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **homi** is a group project for ENTP 4332 (entp6314). It helps homeowners understand a repair quote before agreeing to the work. It checks price context, missing scope items, quote differences, deposit terms, and warranty language. Then it helps the homeowner request comparable bids and keep a reliable record of the job.
 
-The app has four sections, linked from the home page:
+The app has four sections, linked from the home page and the sidebar:
 
 - **Quote Checker** (`/quote-checker`): analyze a contractor's repair quote
 - **Job Files** (`/job-files`): keep the documents for each job together
 - **Warranty Vault** (`/warranty-vault`): store and review warranty terms
 - **Proof Log** (`/proof-log`): keep a reliable record of the work
 
-All four sections and the home page are built and save to Supabase.
+All four sections and the home page are built and save to Supabase. Job Files and Warranty Vault
+are part of **homi Premium** (Stripe, see below); Quote Checker and Proof Log are free.
 
 ## Stack
 
@@ -73,6 +74,31 @@ All four sections and the home page are built and save to Supabase.
     (sends signed-out visitors to `/login`). A blocked update/delete returns no error
     and zero rows, so storage functions use `.select()` and check the count.
 
+- Stripe (`stripe` npm package, server only) — homi Premium, $8/month or $80/year, through
+  Stripe Checkout. Needs `STRIPE_SECRET_KEY` in `.env.local` and in Vercel (use `sk_test_…`
+  keys outside production). `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is set too but no code reads it
+  yet: Checkout is a redirect to a page Stripe hosts, so the browser never needs a key.
+  - One-time setup per Stripe account: `node scripts/setup-stripe.mjs` creates the "homi Premium"
+    product and its prices, which the app finds by lookup key (`homi_premium_monthly`,
+    `homi_premium_yearly`), so no price IDs go in env vars. Safe to run more than once. The
+    Customer Portal settings may need saving once in the Stripe dashboard.
+  - Stripe is the source of truth: Premium means the Stripe customer with your email has an
+    active or trialing subscription (`isPremium` in `src/lib/stripe.ts`). Nothing is stored in
+    Supabase and there are no webhooks.
+  - Routes in `src/app/api/stripe/`: `checkout` (start a subscription), `status` (is this visitor
+    Premium?), `portal` (Stripe's page to cancel, switch plan or update the card). All three are
+    public in `src/lib/supabase/proxy.ts`: you can pay before signing up, and Premium unlocks
+    when you sign in with the same email. After paying signed out, `status` keeps the email
+    Stripe confirmed in the `homi_paid_email` cookie, signed with the Stripe secret key so it
+    can't be forged.
+  - `/subscribe` (`src/components/SubscribeApp.tsx`) shows the Standard (free) and Premium plans.
+    `PremiumGate` (`src/components/PremiumGate.tsx`) wraps the Job Files and Warranty Vault pages:
+    free users can look around, but clicking or typing sends them to `/subscribe`. `usePremium`
+    (`src/lib/use-premium.ts`) only locks when it knows you're on the free plan, so a Stripe outage
+    never locks people out.
+  - The gate is in the page only. Data still goes straight from the browser to Supabase, so a free
+    user could reach Premium data by calling Supabase directly. Enforcing it would need a database
+    rule.
 - Vercel Web Analytics (`@vercel/analytics`) — `<Analytics />` from `@vercel/analytics/next`
   is the last child of `<body>` in `src/app/layout.tsx`. It counts page views on the deployed
   site only (nothing in local dev) and is viewed under the project's Analytics tab in Vercel
@@ -106,6 +132,13 @@ There is no test runner configured yet.
 - Proof Log (`/proof-log`): a dated record of the work on a job, with optional photos. `src/components/ProofLogApp.tsx` loads the selected job's entries; the form and list are in `src/components/proof-log/`. Storage: `src/lib/proof-log-types.ts` and `src/lib/proof-log-storage.ts` (rows in `proof_log_entries`, photos in `homi-files` under `jobs/<id>/proof-log/<entry id>/`, 10MB per photo; deleting an entry removes its photos first).
 - Quote Checker: `src/lib/quote-types.ts`, `src/lib/quote-storage.ts`, and `src/components/Quote*.tsx`.
 - Warranty Vault: `src/lib/warranty-types.ts` (the warranty shape, end-date and status rules — "ending soon" is within `ENDING_SOON_DAYS` = 60), `src/lib/warranty-storage.ts` (saves to the `warranties` table and the `homi-files` bucket), and `src/components/Warranty*.tsx`.
+- Sidebar: `src/components/AppShell.tsx` wraps every page from `src/app/layout.tsx`. It is a left
+  sidebar on wide screens and a menu button on phones, built from `src/lib/sections.ts`, and is
+  hidden on `/login` and `/auth`.
+- Job categories: `src/lib/categories.ts` lists the "What needs fixing?" cards on the home page
+  (HVAC, Pool, Roof, Plumbing, Electrical, Appliances, Other; photos in `public/photos/`, free
+  Pexels photos). `/jobs` shows every card, and `/jobs/[slug]` shows one category with links to
+  the four sections. `src/components/CategoryCard.tsx` draws a card.
 - `public/` — static assets served from `/`.
 
 ## Design
