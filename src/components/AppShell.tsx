@@ -37,6 +37,21 @@ const jobsIcon = (
   </svg>
 );
 
+const planIcon = (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.6}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    className="h-5 w-5 shrink-0"
+  >
+    <path d="m12 3 2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z" />
+  </svg>
+);
+
 const links = [
   { title: "Home", href: "/", icon: homeIcon },
   { title: "Jobs", href: "/jobs", icon: jobsIcon },
@@ -45,6 +60,7 @@ const links = [
     href: s.href,
     icon: <SectionIcon name={s.icon} className="h-5 w-5 shrink-0" />,
   })),
+  { title: "Plans", href: "/subscribe", icon: planIcon },
 ];
 
 function isActive(pathname: string, href: string) {

@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
 // Pages anyone can open without signing in.
-const PUBLIC_PATHS = ["/", "/login", "/auth"];
+const PUBLIC_PATHS = ["/", "/login", "/auth", "/subscribe", "/api/stripe/checkout", "/api/stripe/status", "/api/stripe/portal"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some((p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`)));
