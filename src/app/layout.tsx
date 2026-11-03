@@ -1,20 +1,17 @@
 import type { Metadata } from "next";
-import { Fraunces, Geist, Geist_Mono } from "next/font/google";
+import { DM_Serif_Display, Gabarito } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import AppShell from "@/components/AppShell";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const gabarito = Gabarito({
+  variable: "--font-gabarito",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+const dmSerifDisplay = DM_Serif_Display({
+  variable: "--font-dm-serif-display",
+  weight: "400",
   subsets: ["latin"],
 });
 
@@ -27,10 +24,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}
+      className={`${gabarito.variable} ${dmSerifDisplay.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans">
-        {children}
+        <AppShell>{children}</AppShell>
         {/* Vercel Web Analytics: counts page views on the deployed site (nothing in local dev). */}
         <Analytics />
       </body>

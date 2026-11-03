@@ -1,29 +1,66 @@
 @import "tailwindcss";
 
-/* homi palette: dark, warm neutrals (espresso, walnut, caramel, beige) */
+/* homi design system — see DESIGN.md. Dark mode only. */
 :root {
-  --background: #1c1714;
-  --foreground: #ece1cf;
+  --background: #28190e;
+  --foreground: #f0e5d5;
+  --radius: 0.75rem;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --radius: var(--radius);
 
-  --color-espresso: #1c1714;
-  --color-bark: #261f1a;
-  --color-walnut: #3d3029;
-  --color-cocoa: #5a4536;
-  --color-caramel: #c29a6b;
-  --color-sand: #b8a68f;
-  --color-beige: #ece1cf;
+  /* Official brand palette */
+  --color-espresso: #28190e;
+  --color-dark-cocoa: #30251f;
+  --color-mocha: #403027;
+  --color-champagne: #d6bfa5;
+  --color-warm-cream: #f0e5d5;
+  --color-taupe: #a99683;
+  --color-soft-linen: #e6d8ca;
+  --color-cedar: #7a543d;
+  --color-sage: #829078;
+  --color-terracotta-red: #b86b62;
+  --color-antique-gold: #b79a65;
 
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-serif: var(--font-fraunces);
+  /* Semantic tokens, mapped onto the palette above */
+  --color-primary: var(--color-champagne);
+  --color-primary-foreground: var(--color-espresso);
+  --color-secondary: var(--color-dark-cocoa);
+  --color-secondary-foreground: var(--color-warm-cream);
+  --color-accent: var(--color-cedar);
+  --color-accent-foreground: var(--color-warm-cream);
+  --color-muted: var(--color-mocha);
+  --color-muted-foreground: var(--color-taupe);
+  --color-card: var(--color-mocha);
+  --color-card-foreground: var(--color-warm-cream);
+  --color-border: var(--color-mocha);
+  --color-destructive: var(--color-terracotta-red);
+  --color-destructive-foreground: var(--color-warm-cream);
+  --color-success: var(--color-sage);
+  --color-success-foreground: var(--color-espresso);
+  --color-warning: var(--color-antique-gold);
+  --color-warning-foreground: var(--color-espresso);
+
+  /* Legacy tokens — kept so existing components don't break. See DESIGN.md. */
+  --color-bark: var(--color-dark-cocoa);
+  --color-walnut: var(--color-mocha);
+  --color-cocoa: var(--color-cedar);
+  --color-caramel: var(--color-champagne);
+  --color-sand: var(--color-taupe);
+  --color-beige: var(--color-warm-cream);
+
+  /* Typography */
+  --font-heading: var(--font-dm-serif-display);
+  --font-body: var(--font-gabarito);
+  --font-sans: var(--font-gabarito);
+  --font-serif: var(--font-dm-serif-display);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+  font-size: 16px;
 }
