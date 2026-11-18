@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import WarrantyCard from "@/components/WarrantyCard";
 import WarrantyDetail from "@/components/WarrantyDetail";
-import WarrantyForm from "@/components/WarrantyForm";
+import WarrantyScanner from "@/components/WarrantyScanner";
 import { loadJobs } from "@/lib/job-storage";
 import { canEditJob, type Job } from "@/lib/job-types";
 import { deleteWarranty, loadWarranties, saveWarranty } from "@/lib/warranty-storage";
@@ -86,11 +86,11 @@ export default function WarrantyVaultApp() {
       </div>
 
       {view.kind === "add" && (
-        <WarrantyForm jobs={editableJobs} onSave={handleSave} onCancel={() => setView({ kind: "list" })} />
+        <WarrantyScanner jobs={editableJobs} onSave={handleSave} onCancel={() => setView({ kind: "list" })} />
       )}
 
       {view.kind === "edit" && selected && (
-        <WarrantyForm
+        <WarrantyScanner
           initial={selected}
           jobs={editableJobs}
           onSave={handleSave}
@@ -121,7 +121,7 @@ export default function WarrantyVaultApp() {
               onClick={() => setView({ kind: "add" })}
               className="rounded-full border border-caramel bg-caramel/10 px-4 py-2 text-sm text-caramel transition-colors hover:bg-caramel/20"
             >
-              + Add warranty
+              📷 Scan a warranty
             </button>
           </div>
 
@@ -135,7 +135,7 @@ export default function WarrantyVaultApp() {
             <p className="text-sm text-sand">Loading…</p>
           ) : list.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-walnut p-10 text-center text-sand">
-              No warranties yet. Add your first one.
+              No warranties yet. Scan a warranty card, certificate or receipt to add your first one.
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">

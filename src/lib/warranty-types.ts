@@ -31,6 +31,40 @@ export type Warranty = {
   createdAt: number;
 };
 
+// Reading a warranty from a photo or PDF ("scan"). The file goes to our own server
+// (src/app/api/extract-warranty), which sends it to the AI; the browser never talks to the AI.
+// 4MB because Vercel won't accept a request bigger than 4.5MB. Photos are shrunk first, so this
+// mostly limits PDFs.
+export const MAX_SCAN_FILE_BYTES = 4 * 1024 * 1024;
+export const MAX_SCAN_FILE_LABEL = "4MB";
+export const SCAN_FILE_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+];
+
+// What the AI says the file is. Only "warranty" and "receipt" fill in the form.
+export type ScanDocumentKind = "warranty" | "receipt" | "unreadable" | "not-a-warranty";
+
+// The same fields as the form. null means "not clearly on the document", so the form keeps
+// whatever the person already has there.
+export type WarrantyScan = {
+  documentKind: ScanDocumentKind;
+  item: string | null;
+  warrantyType: WarrantyType | null;
+  provider: string | null;
+  phone: string | null;
+  email: string | null;
+  startDate: string | null; // YYYY-MM-DD
+  lengthYears: number | null;
+  lengthMonths: number | null;
+  covered: string | null;
+  notCovered: string | null;
+};
+
 export type WarrantyStatus = "active" | "ending-soon" | "expired";
 
 export const ENDING_SOON_DAYS = 60;
