@@ -87,7 +87,7 @@ export default function WarrantyDetail({
       <div className="flex gap-3 border-t border-walnut pt-5">
         <button type="button" onClick={onEdit}
           className="rounded-full border border-caramel bg-caramel/10 px-5 py-2 text-sm text-caramel transition-colors hover:bg-caramel/20">
-          Edit
+          Rescan or change job
         </button>
         <button type="button" onClick={onDelete}
           className="rounded-full border border-walnut px-5 py-2 text-sm text-sand transition-colors hover:border-red-400 hover:text-red-400">
